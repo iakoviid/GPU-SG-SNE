@@ -70,7 +70,20 @@ for pi=1:length(ps)
 
     % There are k Lagrange polynomials (one for each point), evaluate each
     % of them at all the n points
-    
+      for ti=1:length(interp_points),
+        for yj=1:n
+            num = 1;
+            denom = 1;
+            for tii=1:k
+                if (tii ~= ti)
+                    denom = denom*(interp_points(ti) -interp_points(tii));
+                    num= num*(locs(yj) - interp_points(tii));
+                end
+            end
+
+            V(yj,ti) = num/denom;
+        end
+    end
     %Note how this is entirely independent of the kernel!
     for ti=1:length(interp_points),
         for yj=1:n
