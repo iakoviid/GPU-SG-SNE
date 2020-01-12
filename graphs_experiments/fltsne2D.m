@@ -8,7 +8,7 @@ kernel = kerneleval1(locs);
 v=zeros(n,2);
 v(:,1) = sin(10*locs(:,1)) + cos(2000*locs(:,1)); %Anything could be used here
 v(:,2) = sin(10*locs(:,2)) + cos(2000*locs(:,2)); %Anything could be used here
-f=mult2(kernel,v);
+f=mult2d(kernel,v);
 
 %% Number of Nint intervals k interpolation points per interval h interval
 %length
@@ -38,8 +38,8 @@ S = kerneleval1(interp_points);
 
 
 Vt=V';
-a=mult2(V,v);
-b=mult2(S,a);
-fpol=mult2(V',b);
+a=mult2d(V,v);
+b=mult2d(S,a);
+fpol=mult2d(V',b);
 
 error=norm(f(:,1)-fpol(:,1))+norm(f(:,2)-fpol(:,2));
