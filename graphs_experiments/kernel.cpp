@@ -6,7 +6,7 @@
 #include <cmath>
 using namespace std;
 double kernel(double x1, double x2, double y1, double y2,double df) {
-    return pow(1.0 + pow(x1 - y1, 2) + pow(x2 - y2, 2), -2);
+    return pow(1.0 + pow(x1 - y1, 2) + pow(x2 - y2, 2), -1);
 }
 
 void precompute_2d(double x_max, double x_min, double y_max, double y_min, int n_boxes, int n_interpolation_points, double *box_lower_bounds, double *box_upper_bounds, double *y_tilde_spacings,
@@ -21,7 +21,7 @@ double y_max=1;
 double x_min=0;
 double y_min=0;
 int n_boxes=1;
-int n_interpolation_points=3;
+int n_interpolation_points=2;
 int N=2;
 int n_terms=2;
 double xs[2]={0.3,0.1};
