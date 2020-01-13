@@ -6,7 +6,22 @@ for(i=1:m)
     a=[a S((n-(i)*m+1),2:m)];
 end
 
-for(i=2:m)
-    a=[a S((n-(i-1)*m):-1:(n-(i)*m+1),1)'];
-    a=[a S((n-(i)*m+1),2:m)];
+for(i=1:m-1)
+    a=[a S((m:-1:1),i*m+1)'];
+    a=[a S(1,i*m+2:(i+1)*m)];
+    
 end
+
+
+for(i=1:length(u) )
+    i1=ceil(i/m);
+    i2=mod(i,m);
+    v(2*m*(m-1)-(i1-1)*(2*m-1)-(i2-1))=u(i);
+end
+for i1=1:m
+    for i2=1:m
+        z=2m*(2m-1)-i1*(2m-)
+end
+
+
+
