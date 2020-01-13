@@ -12,7 +12,7 @@ f=mult2d(kernel,v);
 
 %% Number of Nint intervals k interpolation points per interval h interval
 %length
-N = 2; 
+N = 3; 
 h = 1/(N);
 interp_points=zeros(N^2,2);
 for(i=1:N)
