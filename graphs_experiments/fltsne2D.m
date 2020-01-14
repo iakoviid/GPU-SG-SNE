@@ -12,7 +12,7 @@ f=mult2d(kernel,v);
 
 %% Number of Nint intervals k interpolation points per interval h interval
 %length
-N = 3; 
+N = 2; 
 h = 1/(N);
 interp_points=zeros(N^2,2);
 for(i=1:N)
@@ -33,6 +33,17 @@ for i=1:k
         V(i,j)=Vx(j,mod(i,N)+1)*Vy(j,ceil(i/N));
     end
 end
+R=zeros(k,n);
+for x=1:n
+for i=1:N
+    for j=1:N
+        R((i-1)*N+j,x)=Vx(i,x)*Vy(j,x);
+    end
+end
+end
+V=R
+
+%%  
 
 S = kerneleval1(interp_points);
 
@@ -42,4 +53,5 @@ a=mult2d(V,v);
 b=mult2d(S,a);
 fpol=mult2d(V',b);
 
-error=norm(f(:,1)-fpol(:,1))+norm(f(:,2)-fpol(:,2));
+%% 
+error=norm(f(:,1)-fpol(:,1))/norm(f(:,1))+norm(f(:,2)-fpol(:,2))/norm(f(:,2))

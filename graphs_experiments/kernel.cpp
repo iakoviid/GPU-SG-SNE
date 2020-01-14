@@ -221,10 +221,8 @@ void n_body_fft_2d(int N, int n_terms, double *xs, double *ys, double *chargesQi
                 int idx = (box_i * n_interpolation_points + interp_i) * (n_boxes * n_interpolation_points) +
                           (box_j * n_interpolation_points) + interp_j;
                 for (int d = 0; d < n_terms; d++) {
-                    w_coefficients[idx * n_terms + d] +=
-                            y_interpolated_values[interp_j * N + i] *
-                            x_interpolated_values[interp_i * N + i] *
-                            chargesQij[i * n_terms + d];
+                    w_coefficients[idx * n_terms + d] +=y_interpolated_values[interp_j * N + i] *x_interpolated_values[interp_i * N + i];
+
                 }
             }
         }
