@@ -1,7 +1,7 @@
 function [V] = interpolate_eval(locs,interp_points)
 N=length(interp_points);
 n=length(locs);
-V = zeros(n,N); 
+V = zeros(N,n); 
      for ti=1:N
           for yj=1:n
                 num = 1;
@@ -13,7 +13,7 @@ V = zeros(n,N);
                     end
                 end
 
-                V(yj,ti) = num/denom;
+                V(ti,yj) = num/denom;
            end
      end
 end
