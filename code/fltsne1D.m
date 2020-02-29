@@ -87,4 +87,5 @@ relativeError(papa)=log10(relativeError(papa));
 disp(relativeError(papa));
 end
 plot(relativeError)
-title('log10(Relative Error)')
+title('log10(Relative Error)-1D interval interp')
+xlabel('Nintervals=points/int')

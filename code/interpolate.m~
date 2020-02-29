@@ -1,0 +1,44 @@
+function [L] = interpolate(k, n, points_in_box, interp_in_box)
+L = zeros(n, k);
+denominator = zeros(k);
+    for (i= 1: k) 
+        denominator(i) = 1;
+        for (j = 1: k) 
+            if (i ~= j) 
+                denominator(i) = denominator*(interp_in_box(i) - interp_in_box(j));
+            end
+        end
+    end
+    for (i = 1:n) {
+        for ( j = 1:k) {
+            L(i,j) = 1;
+            for ( k = 1; k < n_interpolation_points; k++) {
+                if (j != k) {
+                    interpolated_values[j * N + i] *= y_in_box[i] - y_tilde_spacings[k];
+                }
+            }
+            interpolated_values[j * N + i] /= denominator[j];
+        }
+    }
+    
+    N=length(interp_points);
+n=length(locs);
+V = zeros(N,n); 
+     for ti=1:N
+          for yj=1:n
+                num = 1;
+                denom = 1;
+                for tii=1:N
+                    if (tii ~= ti)
+                        denom = denom*(interp_points(ti) -interp_points(tii));
+                        num= num*(locs(yj) - interp_points(tii));
+                    end
+                end
+
+                V(ti,yj) = num/denom;
+           end
+     end
+    
+    
+end
+

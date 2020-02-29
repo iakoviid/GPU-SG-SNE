@@ -23,22 +23,22 @@ double x_max=1;
 double y_max=1;
 double x_min=0;
 double y_min=0;
-int n_boxes=1;
-int n_interpolation_points=2;
+int n_boxes=2;
+int n_interpolation_points=5;
 int N=2;
 int n_terms=2;
 double xs[2]={0.3,0.1};
 double ys[2]={0.3,0.7};
-double* chargesQij=(double* )malloc(N*N*sizeof(double));
-double* potentialQij=(double* )malloc(N*N*sizeof(double));
+double* chargesQij=(double* )malloc(N*N*sizeof(double)); // why are  charges N*N and not N 
+double* potentialQij=(double* )malloc(N*N*sizeof(double));// why are potentials N*N and not N
 
-double* box_lower_bounds=(double* )malloc(n_boxes*n_boxes*sizeof(double));
-double* box_upper_bounds=(double* )malloc(n_boxes*n_boxes*sizeof(double));
+double* box_lower_bounds=(double* )malloc(2*n_boxes*n_boxes*sizeof(double));
+double* box_upper_bounds=(double* )malloc(2*n_boxes*n_boxes*sizeof(double));
 double* y_tilde_spacings=(double*)malloc(n_boxes*n_interpolation_points*sizeof(double));
 
 double* x_tilde=(double*)malloc(n_boxes*n_interpolation_points*sizeof(double));
 double* y_tilde=(double*)malloc(n_boxes*n_interpolation_points*sizeof(double));
-double df=0;
+double df=0;// have no idea what this is
 complex<double> *fft_kernel_tilde= (complex<double> *)malloc( (2*N)*(2*N)*sizeof(complex<double>));
 precompute_2d( x_max,  x_min,  y_max,  y_min,  n_boxes,  n_interpolation_points,  box_lower_bounds,  box_upper_bounds,  y_tilde_spacings,
  y_tilde,  x_tilde, fft_kernel_tilde ,df );
@@ -138,7 +138,7 @@ void precompute_2d(double x_max, double x_min, double y_max, double y_min, int n
     fftw_execute(p);
 
     fftw_destroy_plan(p);
-    delete[] kernel_tilde;
+    //delete[] kernel_tilde;
 }
 
 
@@ -209,8 +209,8 @@ void n_body_fft_2d(int N, int n_terms, double *xs, double *ys, double *chargesQi
                 for (int d = 0; d < n_terms; d++) {
                     w_coefficients[idx * n_terms + d] +=
                             y_interpolated_values[interp_j * N + i] *
-                            x_interpolated_values[interp_i * N + i] *
-                            chargesQij[i * n_terms + d];
+                            x_interpolated_values[interp_i * N + i]; //*
+                           // chargesQij[i * n_terms + d];
                 }
             }
         }

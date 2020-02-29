@@ -73,5 +73,5 @@ fprintf("N=%d log10error=%f\n",N,error(N));
 
 end
 plot(error)
-title('log10(Relative Error)')
+title('log10(Relative Error)- Interpolation points/dim 2D')
 

@@ -1,7 +1,9 @@
 clear all;
 rng(1)
-a = 0; b=1; n = 1000;
-locs = rand(n,2)*(b-a);
+a = 0; b=1; n = 2;
+%locs = rand(n,2)*(b-a);
+locs=[0.3 0.3;0.1 0.7];
+
 distmatrix = squareform(pdist(locs));
 kernel = 1./(1+distmatrix.^2);
 v(:,1) = sin(10*locs(:,1)) + cos(2000*locs(:,1)); %Anything could be used here
@@ -12,7 +14,7 @@ f = kernel*v;%Result
 %% Number of Nint intervals and k interpolation points per dimension make Nint^2 boxes with k^2 points inside them interval h interval
 %length
 k = 5;
-Nint = 1;
+Nint = 2;
 h = 1/(Nint *k);
 
 
@@ -27,6 +29,8 @@ for j=1:k
         end
     end
 end
+gscatter(interp_points(:,:,1),interp_points(:,:,2));
+
 %% We need to be able to look up which box each point belongs to
 int_lookup = zeros(n,1);
 
@@ -41,6 +45,7 @@ for i=1:n
     end
    int_lookup(i) = current_intx+(current_inty-1)*Nint;
 end
+hold on;
 gscatter(locs(:,1),locs(:,2),int_lookup);
 
 %% Make V, which is now n rows by Nint*k columns
