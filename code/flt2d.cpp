@@ -5,6 +5,7 @@
 #include <complex>
 #include <fftw3.h>
 #include <cmath>
+#include<time.h> 
 
 using namespace std;
 double kernel(double x1, double x2, double y1, double y2,double df) {
@@ -19,34 +20,124 @@ void n_body_fft_2d(int N, int n_terms, double *xs, double *ys, double *chargesQi
                    int n_interpolation_points, double *box_lower_bounds, double *box_upper_bounds,
                    double *y_tilde_spacings, complex<double> *fft_kernel_tilde, double *potentialQij);
 int main(){
+int D=2;
+int N=2;
+srand(time(0)); 
+    // For convenience, split the x and y coordinate values
+double * xs=(double *)malloc(sizeof(double)*N);
+double * ys=(double *)malloc(sizeof(double)*N);
+double* Y=(double *)malloc(sizeof(double)*2*N);
+for(int i=0;i<N;i++){
+
+    Y[2*i]=((double) rand() / (RAND_MAX));
+    Y[2*i+1]=((double) rand() / (RAND_MAX));
+
+
+}
+double * dC=(double *)malloc(sizeof(double)*N*D);
+ // Zero out the gradient
+for (int i = 0; i < N * D; i++) dC[i] = 0.0;
+
+
+
+
+
+
+    double min_coord = 100000;
+    double max_coord = -100000;
+   // Find the min/max values of the x and y coordinates
+    for (unsigned long i = 0; i < N; i++) {
+        xs[i] = Y[i * 2 + 0];
+        ys[i] = Y[i * 2 + 1];
+        if (xs[i] > max_coord) max_coord = xs[i];
+        else if (xs[i] < min_coord) min_coord = xs[i];
+        if (ys[i] > max_coord) max_coord = ys[i];
+        else if (ys[i] < min_coord) min_coord = ys[i];
+    }
+
+ // The number of "charges" or s+2 sums i.e. number of kernel sums
+    int n_terms = 4;
+    auto *chargesQij = new double[N * n_terms];
+    auto *potentialsQij = new double[N * n_terms]();
+
+    // Prepare the terms that we'll use to compute the sum i.e. the repulsive forces
+    for (unsigned long j = 0; j < N; j++) {
+        chargesQij[j * n_terms + 0] = 1;
+        chargesQij[j * n_terms + 1] = xs[j];
+        chargesQij[j * n_terms + 2] = ys[j];
+        chargesQij[j * n_terms + 3] = xs[j] * xs[j] + ys[j] * ys[j];
+    }
+
+
 double x_max=1;
 double y_max=1;
 double x_min=0;
 double y_min=0;
-int n_boxes=2;
+int n_boxes_per_dim=13;
 int n_interpolation_points=5;
-int N=2;
-int n_terms=2;
-double xs[2]={0.3,0.1};
-double ys[2]={0.3,0.7};
-double* chargesQij=(double* )malloc(N*N*sizeof(double)); // why are  charges N*N and not N 
-double* potentialQij=(double* )malloc(N*N*sizeof(double));// why are potentials N*N and not N
 
-double* box_lower_bounds=(double* )malloc(2*n_boxes*n_boxes*sizeof(double));
-double* box_upper_bounds=(double* )malloc(2*n_boxes*n_boxes*sizeof(double));
-double* y_tilde_spacings=(double*)malloc(n_boxes*n_interpolation_points*sizeof(double));
+  int allowed_n_boxes_per_dim[20] = {25,36, 50, 55, 60, 65, 70, 75, 80, 85, 90, 96, 100, 110, 120, 130, 140,150, 175, 200};
+    if ( n_boxes_per_dim < allowed_n_boxes_per_dim[19] ) {
+        //Round up to nearest grid point
+        int chosen_i;
+        for (chosen_i =0; allowed_n_boxes_per_dim[chosen_i]< n_boxes_per_dim; chosen_i++);
+        n_boxes_per_dim = allowed_n_boxes_per_dim[chosen_i];
+    }
 
-double* x_tilde=(double*)malloc(n_boxes*n_interpolation_points*sizeof(double));
-double* y_tilde=(double*)malloc(n_boxes*n_interpolation_points*sizeof(double));
+    int n_boxes = n_boxes_per_dim * n_boxes_per_dim;
+
+    auto *box_lower_bounds = new double[2 * n_boxes];
+    auto *box_upper_bounds = new double[2 * n_boxes];
+
+    auto *y_tilde_spacings = new double[n_interpolation_points];
+    int n_interpolation_points_1d = n_interpolation_points * n_boxes_per_dim;
+    auto *x_tilde = new double[n_interpolation_points_1d]();
+    auto *y_tilde = new double[n_interpolation_points_1d]();
+    auto *fft_kernel_tilde = new complex<double>[2 * n_interpolation_points_1d * 2 * n_interpolation_points_1d];
+
+
 double df=0;// have no idea what this is
-complex<double> *fft_kernel_tilde= (complex<double> *)malloc( (2*N)*(2*N)*sizeof(complex<double>));
+
 precompute_2d( x_max,  x_min,  y_max,  y_min,  n_boxes,  n_interpolation_points,  box_lower_bounds,  box_upper_bounds,  y_tilde_spacings,
  y_tilde,  x_tilde, fft_kernel_tilde ,df );
 
  n_body_fft_2d( N,  n_terms,  xs,  ys,  chargesQij,  n_boxes,
                     n_interpolation_points,  box_lower_bounds,  box_upper_bounds,
-                    y_tilde_spacings, fft_kernel_tilde, potentialQij);
+                    y_tilde_spacings, fft_kernel_tilde, potentialsQij);
+  
+
+   // Compute the normalization constant Z or sum of q_{ij}. This expression is different from the one in the original
+    // paper, but equivalent. This is done so we need only use a single kernel (K_2 in the paper) instead of two
+    // different ones. We subtract N at the end because the following sums over all i, j, whereas Z contains i \neq j
+    double sum_Q = 0;
+    for (unsigned long i = 0; i < N; i++) {
+        double phi1 = potentialsQij[i * n_terms + 0];
+        double phi2 = potentialsQij[i * n_terms + 1];
+        double phi3 = potentialsQij[i * n_terms + 2];
+        double phi4 = potentialsQij[i * n_terms + 3];
+
+        sum_Q += (1 + xs[i] * xs[i] + ys[i] * ys[i]) * phi1 - 2 * (xs[i] * phi2 + ys[i] * phi3) + phi4;
+    }
+    sum_Q -= N;
+
+        //double *pos_f = new double[N * 2];
+
+    // Make the negative term, or F_rep in the equation 3 of the paper
+    double *neg_f = new double[N * 2];
+    for (unsigned int i = 0; i < N; i++) {
+        neg_f[i * 2 + 0] = (xs[i] * potentialsQij[i * n_terms] - potentialsQij[i * n_terms + 1]) / sum_Q;
+        neg_f[i * 2 + 1] = (ys[i] * potentialsQij[i * n_terms] - potentialsQij[i * n_terms + 2]) / sum_Q;
+
+        //dC[i * 2 + 0] = pos_f[i * 2] - neg_f[i * 2];
+        //dC[i * 2 + 1] = pos_f[i * 2 + 1] - neg_f[i * 2 + 1];
+       dC[i * 2 + 0]=- neg_f[i * 2];
+          dC[i * 2 + 1]=- neg_f[i * 2+1];
+    }
+
     return 0;
+
+
+
 }
 void interpolate(int n_interpolation_points, int N, const double *y_in_box, const double *y_tilde_spacings,
                  double *interpolated_values) {

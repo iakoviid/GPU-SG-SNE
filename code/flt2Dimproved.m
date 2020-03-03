@@ -1,16 +1,25 @@
-clear all;
-rng(1)
-a = 0; b=1; n = 1000;
-locs = rand(n,2)*(b-a);
+ clear all;
+ rng(1)
+ squared=1;
+ a = 0; b=0.001; n = 500;
+ locs = rand(n,2)*(b-a);
+ a = 0; b=0.00001; n = 500;
+locs2 = rand(n,2)*(b-a)+1;
+locs=[locs;locs2];
+n=1000;
+minLx=min(locs(:,1));
+maxLx=max(locs(:,1));
+minLy=min(locs(:,2));
+maxLy=max(locs(:,2));
 %n=2;
 %locs=[0.3 0.3;0.1 0.7];
 
 distmatrix = squareform(pdist(locs));
-kernel = 1./(1+distmatrix.^2);
-v(:,1) = sin(10*locs(:,1)) + cos(2000*locs(:,1)); %Anything could be used here
-v(:,2) = sin(10*locs(:,2)) + cos(2000*locs(:,2)); %Anything could be used here
-
-f = kernel*v;%Result
+A = 1./(1+distmatrix.^2);
+ v(:,1) = sin(10*locs(:,1)) + cos(2000*locs(:,1)); %Anything could be used here
+ v(:,2) = sin(10*locs(:,2)) + cos(2000*locs(:,2)); %Anything could be used here
+% 
+f = A*v;%Result
 %% Number of Nint intervals and k interpolation points per dimension make Nint^2 boxes with k^2 points inside them interval h interval
 %length
 error=zeros(20,1);
@@ -19,16 +28,16 @@ k = papa;
 Nint = papa;
 %h = 1/(Nint *k);
 total_boxes=Nint^2;
-box_width=1/Nint;
+box_width=(maxLx-minLx)/Nint;
 box_lower_bounds=zeros(2*total_boxes,1);
 box_upper_bounds=zeros(2*total_boxes,1);
 
 for i=1:Nint
     for j=1:Nint
-        box_lower_bounds((i-1)*Nint+j)=0+box_width*(j-1);
-        box_upper_bounds((i-1)*Nint+j)=0+box_width*j;
-        box_lower_bounds((i-1)*Nint+j+total_boxes)=0+box_width*(i-1);
-        box_upper_bounds((i-1)*Nint+j+total_boxes)=0+box_width*(i);
+        box_lower_bounds((i-1)*Nint+j)=0+box_width*(j-1)+minLx;
+        box_upper_bounds((i-1)*Nint+j)=0+box_width*j+minLx;
+        box_lower_bounds((i-1)*Nint+j+total_boxes)=0+box_width*(i-1)+minLy;
+        box_upper_bounds((i-1)*Nint+j+total_boxes)=0+box_width*(i)+minLy;
     end
 end
 
@@ -46,9 +55,10 @@ n_fft_coeffs = 2 * N1d;
 h = h * box_width;
 x_tilde=zeros(N1d,1);
 y_tilde=zeros(N1d,1);
-
-x_tilde(1) = 0 + h / 2;
-y_tilde(1) = 0 + h / 2;
+        tmp = sqrt((x_tilde(1) -x_tilde(i+1))^2 +(y_tilde(1) -y_tilde(j+1) )^2);
+        tmp = 1/(1+tmp^2);
+x_tilde(1) = minLx + h / 2;
+y_tilde(1) = minLy + h / 2;
 for (i = 2:N1d) 
         x_tilde(i) = x_tilde(i - 1) + h;
         y_tilde(i) = y_tilde(i - 1) + h;
@@ -58,12 +68,15 @@ end
 kernel_tilde=zeros(2*N1d,2*N1d);
 for i = 0:N1d-1
     for j =0:N1d-1
-        tmp = sqrt((x_tilde(1) -x_tilde(i+1))^2 +(x_tilde(1) -x_tilde(j+1) )^2);
-        tmp = 1/(1+tmp^2);
-        kernel_tilde((N1d + i)+1 , (N1d + j)+1) = tmp;
-        kernel_tilde((N1d - i)+1 , (N1d + j)+1) = tmp;
-        kernel_tilde((N1d + i)+1 , (N1d - j)+1) = tmp;
-        kernel_tilde((N1d - i)+1 , (N1d - j)+1) = tmp;
+        tmp=kernel(x_tilde(1),x_tilde(i+1),y_tilde(1),y_tilde(j+1),squared);
+
+%         tmp = sqrt((x_tilde(1) -x_tilde(i+1))^2 +(y_tilde(1) -y_tilde(j+1) )^2);
+%         tmp = 1/(1+tmp^2);
+        for signi=-1:2:1
+            for signj=-1:2:1
+            kernel_tilde((N1d +signi*i)+1 , (N1d + signj*j)+1) = tmp;
+            end
+        end
     end
 end
 
@@ -73,28 +86,27 @@ total_interp_point=N1d^2;
 
 
 %% We need to be able to look up which box each point belongs to
+box_width=box_upper_bounds(1)-box_lower_bounds(1);
 int_lookup = zeros(n,1);
 
 for i=1:n
     current_intx = 0;
     current_inty=0;
-    while (k*h*(current_intx) < locs(i,1))
-        current_intx = current_intx +1;
-    end
-    if(current_intx==floor((locs(i,1)-box_lower_bounds(1))/box_width)+1)
-     else
-                disp("No");
-
-    end
-    while (k*h*(current_inty) < locs(i,2))
-        current_inty = current_inty +1;
-    end
+  
+    current_intx=floor((locs(i,1)-box_lower_bounds(1))/box_width)+1;
+  
     
-    if(current_inty==floor((locs(i,2)-box_lower_bounds(1))/box_width)+1)
-    else
-                disp("No");
-
-    end
+    current_inty=floor((locs(i,2)-box_lower_bounds(1))/box_width)+1;
+        if (current_intx > Nint) 
+            current_intx = Nint;
+        elseif (current_intx <= 0) 
+            current_intx = 1;
+        end
+        if (current_inty > Nint) 
+            current_inty = Nint;
+        elseif (current_inty <= 0) 
+            current_inty = 1;
+        end
    
    int_lookup(i) = current_intx+(current_inty-1)*Nint;
 end
@@ -136,17 +148,16 @@ end
 b=zeros(N1d^2,2);
 
 fa=vec2mat(w(:,1),N1d);
-fa=[fa zeros(N1d,N1d);zeros(N1d,2*N1d)];
+fa=[zeros(N1d,2*N1d);zeros(N1d,N1d) fa ];
 
 result=ifft2(fft2(kernel_tilde).*fft2(fa));
-result= (result(N1d+1:2*N1d,N1d+1:2*N1d))';
-b(:,1)=result(:);
+result= result(1:N1d,1:N1d);
+b(:,1)=reshape(result.',1,[]);
 fa=vec2mat(w(:,2),N1d);
-fa=[fa zeros(N1d,N1d);zeros(N1d,2*N1d)];
+fa=[zeros(N1d,2*N1d);zeros(N1d,N1d) fa ];
 result=ifft2(fft2(kernel_tilde).*fft2(fa));
-result= (result(N1d+1:2*N1d,N1d+1:2*N1d))';
-b(:,2)=result(:);
-
+result= result(1:N1d,1:N1d);
+b(:,2)=reshape(result.',1,[]);
 fpol=zeros(n,2);
 for i=1:n
     box_idx=int_lookup(i)-1;
