@@ -1,3 +1,4 @@
+N=2;
 h = 1/(N);
 interp_points=zeros(N^2,2);
 for(i=1:N)
@@ -46,13 +47,13 @@ fa=zeros(2*N,2*N,2*N);
 for(i=1:N)
     for(j=1:N)
         for(z=1:N)
-            fa(i,j,z)=w((i-1)*N+j+(z-1)*N^2);
+            fa(i+N,j+N,z+N)=w((i-1)*N+j+(z-1)*N^2);
         end
     end
 end
 
 result=ifftn(fftn(fa).*fftn(kernel_tilde));
-result= (result(N+1:2*N,N+1:2*N,N+1:2*N));
+result= result(1:N,1:N,1:N);
 final=zeros(N^3,1);
 for(i=1:N)
     for(j=1:N)
