@@ -1,7 +1,7 @@
-clear;
+%clear;
 error=zeros(20,4);
-n=100;
-Y=rand(n,4);
+%n=500;
+%Y=rand(n,4);
 for intpar=2:20
     charges=[Y(:,1) ones(n,1)];
     phi=compute1D(Y(:,1),charges,intpar,intpar,1,n,2);
@@ -25,7 +25,10 @@ for intpar=2:20
     error(intpar,2)=log10(error(intpar,2));
 
 end
-
+figure();
+plot(error(:,1))
+hold on
+plot(error(:,2))
 
 for intpar=2:12
     charges=[Y(:,1:3) ones(n,1)];
@@ -51,10 +54,7 @@ for intpar=2:5
     error(intpar,4)=log10(error(intpar,4));
 
 end
-figure();
-plot(error(:,1))
-hold on
-plot(error(:,2))
+
 hold on
 plot(error(:,3))
 hold on
