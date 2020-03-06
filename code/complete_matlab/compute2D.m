@@ -5,8 +5,11 @@ minx=min(Y(:,1));
 maxx=max(Y(:,1));
 miny=min(Y(:,2));
 maxy=max(Y(:,2));
-
-box_width=(maxx-minx)/Nint;
+maxy=max([maxx maxy]);
+miny=max([minx miny]);
+minx=miny;
+maxx=maxy;
+box_width=(maxx-minx)/Nint; %see it 
 N1d = Nint * k;
 total_boxes=Nint^2;
 %Compute Box bounds

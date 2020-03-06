@@ -21,16 +21,19 @@ void n_body_fft_2d(int N, int n_terms, double *xs, double *ys, double *chargesQi
                    double *y_tilde_spacings, complex<double> *fft_kernel_tilde, double *potentialQij);
 int main(){
 int D=2;
-int N=2;
-srand(time(0)); 
+int N=1000;
+//srand(time(0)); 
     // For convenience, split the x and y coordinate values
 double * xs=(double *)malloc(sizeof(double)*N);
 double * ys=(double *)malloc(sizeof(double)*N);
 double* Y=(double *)malloc(sizeof(double)*2*N);
 for(int i=0;i<N;i++){
-
-    Y[2*i]=((double) rand() / (RAND_MAX));
-    Y[2*i+1]=((double) rand() / (RAND_MAX));
+    scanf("%lf,%lf",&Y[2*i],&Y[2*i+1]);
+    xs[i]=Y[2*i];
+    ys[i]=Y[2*i+1];
+    
+    //Y[2*i]((double) rand() / (RAND_MAX));
+    //Y[2*i+1]=((double) rand() / (RAND_MAX));
 
 
 }
@@ -56,7 +59,7 @@ for (int i = 0; i < N * D; i++) dC[i] = 0.0;
     }
 
  // The number of "charges" or s+2 sums i.e. number of kernel sums
-    int n_terms = 4;
+    int n_terms = 3;
     auto *chargesQij = new double[N * n_terms];
     auto *potentialsQij = new double[N * n_terms]();
 
@@ -65,7 +68,6 @@ for (int i = 0; i < N * D; i++) dC[i] = 0.0;
         chargesQij[j * n_terms + 0] = 1;
         chargesQij[j * n_terms + 1] = xs[j];
         chargesQij[j * n_terms + 2] = ys[j];
-        chargesQij[j * n_terms + 3] = xs[j] * xs[j] + ys[j] * ys[j];
     }
 
 
@@ -98,7 +100,7 @@ int n_interpolation_points=5;
 
 double df=0;// have no idea what this is
 
-precompute_2d( x_max,  x_min,  y_max,  y_min,  n_boxes,  n_interpolation_points,  box_lower_bounds,  box_upper_bounds,  y_tilde_spacings,
+precompute_2d( max_coord, min_coord, max_coord, min_coord, n_boxes,  n_interpolation_points,  box_lower_bounds,  box_upper_bounds,  y_tilde_spacings,
  y_tilde,  x_tilde, fft_kernel_tilde ,df );
 
  n_body_fft_2d( N,  n_terms,  xs,  ys,  chargesQij,  n_boxes,
