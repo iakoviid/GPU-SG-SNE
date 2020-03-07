@@ -1,6 +1,5 @@
 function [rep] =  compute1D(Y,charges,Nint,k,squared,n,nsums)
-% locs=Y;
-% flt2Dimproved;
+
 minY=min(Y);
 maxY=max(Y);
 
@@ -51,7 +50,7 @@ fft_kernel=fft(kernel_tilde);
 
 
 
-%% We need to be able to look up which box each point belongs to
+% We need to be able to look up which box each point belongs to
 box_width=box_upper_bounds(1)-box_lower_bounds(1);
 int_lookup = zeros(n,1);
 

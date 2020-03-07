@@ -60,14 +60,13 @@ for iter=1:max_iter
     y_grads=y_grads-4*(diag(sum(QQ, 1))) * ydata;
     y_grads=y_grads+4*QQ*ydata;
     
-    maxy=max(max(ydata));
-    ydata=ydata/maxy;
+    
     rep=repulsive(ydata,n,no_dims);
-    rep=rep*maxy;
+    
     realRep=4*(diag(sum(QQ, 1)) - QQ) * ydata;
     error(iter)=norm(realRep-rep*4)/norm(realRep);
     if(error(iter)<10^(-2))
-        %disp('Success');
+        disp('Success');
     end
     % Update the solution
     gains = (gains + .2) .* (sign(y_grads) ~= sign(y_incs)) ...         % note that the y_grads are actually -y_grads

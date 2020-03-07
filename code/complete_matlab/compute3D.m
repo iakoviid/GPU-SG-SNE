@@ -117,7 +117,7 @@ for (i = 1: n)
 end
 
 
-%% Step 1: Interpolate kernel using Lagrange polynomials and compute the w coefficients
+% Step 1: Interpolate kernel using Lagrange polynomials and compute the w coefficients
 
 %Compute the interpolated values at each real point with each Lagrange polynomial in the `x` direction
 Vx = zeros(n, k);

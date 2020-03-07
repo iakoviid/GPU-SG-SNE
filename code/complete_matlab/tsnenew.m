@@ -60,7 +60,7 @@ end
 
 P=P.*points;
 P=(P+P')/(2*nneig);    
-
+ 
    
 % Run t-SNE
 %figure(2);

@@ -14,7 +14,7 @@ f = kernel*v;%Result
 relativeError=zeros(21,1);
 for papa=2:21
 k = papa;
-Nint = papa; 
+Nint = 10; 
 h = 1/(Nint *k);
 
 
