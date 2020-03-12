@@ -65,6 +65,7 @@ for iter=1:max_iter
     
     realRep=4*(diag(sum(QQ, 1)) - QQ) * ydata;
     error(iter)=norm(realRep-rep*4)/norm(realRep);
+    error(iter)=log10(error(iter));
     if(error(iter)<10^(-2))
         disp('Success');
     end

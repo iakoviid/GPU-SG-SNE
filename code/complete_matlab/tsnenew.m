@@ -1,12 +1,14 @@
 % Load data
 clear;
-load 'mnist_train.mat'
-ind=randperm(size(train_X, 1));
+% load 'mnist_train.mat'
+% ind=randperm(size(train_X, 1));
 k=500;
-train_X=train_X(ind(1:k),:);
-train_labels=train_labels(ind(1:k));
+% train_X=train_X(ind(1:k),:);
+% train_labels=train_labels(ind(1:k));
 %train_X=train_X(1:k,:);
-%train_labels=train_labels(1:k,:);
+%train_labels=train_labels(1:k);
+load 'labls.mat'
+load 'trainX.mat'
 
 % Set parameters
 no_dims= 2;
