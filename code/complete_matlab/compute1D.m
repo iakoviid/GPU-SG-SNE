@@ -16,12 +16,13 @@ end
 
 interp_in_box=zeros(k,1);
 
-% Coordinates of each (equispaced) interpolation node for a single box
+% Coordinates of each (equispaced) interpolation node for a single box Change:h/2:h:k*h-h/2
 h = 1 / k;
-interp_in_box(1) = h / 2;
-for (i = 2:k) 
-    interp_in_box(i) = interp_in_box(i - 1) + h;
-end
+% interp_in_box(1) = h / 2;
+% for (i = 2:k) 
+%      interp_in_box(i) = interp_in_box(i - 1) + h;
+% end
+interp_in_box=h/2:h:k*h-h/2;
 
 %Coordinates of all the equispaced interpolation points
 n_fft_coeffs = 2 * N1d;

@@ -6,11 +6,10 @@ num(1:n+1:end) = 0;                                                 % set diagon
 Q = max(num ./ sum(num(:)), realmin);                               % normalize to get probabilities
 QQ=Q.*num;
 realRep=4*(diag(sum(QQ, 1)) - QQ) * ydata;
-error=zeros(Nmax,2);
-widthy=max(ydata(:,1));
-widthy2=min(ydata(:,1));
-widthx=max(ydata(:,2));
-widthx2=min(ydata(:,2));
+error=zeros(Nmax,length(ks));
+width=max(ydata(:));
+width2=min(ydata(:));
+
 figure;
 j=1;
 s=size(ydata,2);
@@ -36,11 +35,11 @@ for k=ks
 end
 labs=[];
 for k=ks
-    labs=[labs string(k)];
+    labs=[labs "p="+string(k)];
 end
 xlabel('#Intervals');
 ylabel("log10(RSE)");
-title(n+"points in "+"["+widthy2+","+widthy+"]x["+widthx2+","+widthx+"]" );
+title(n+"points in "+"ymax="+width+", ymin= "+width2 +" in "+s+"dimensions" );
 legend(labs);
 end
 

@@ -11,7 +11,7 @@ load 'labls.mat'
 load 'trainX.mat'
 
 % Set parameters
-no_dims= 2;
+no_dims= 1;
 initial_dims= 50;
 perplexity= 30;
 
@@ -65,21 +65,22 @@ P=(P+P')/(2*nneig);
  
    
 % Run t-SNE
-[ydata] = tsne_compute(P, train_labels, no_dims);
-%Plot Results
+%figure(2);
+ydata = tsne_compute(P, train_labels, no_dims);
+figure();
 if(no_dims==1)
 %stem(train_labels,ydata)
 figure();
 for i=1:10
     idx=train_labels==i;
-    plot(train_labels(idx),ydata(idx),"*",'linewidth',4);
+    plot(train_labels(idx),ydata(idx),"*");
     hold on;
 end
-title("MNIST 500 sampled points exact t-SNE");
+title("MNIST 500 random points exact tsne");
 xlabel('digit');
 ylabel('value');
 end
-if(no_dims==2)
-    gscatter(ydata(:,1),ydata(:,2),train_labels);
-end
+if(no_fd)
+gscatter(ydata(:,1),ydata(:,2),train_labels);
+    
     

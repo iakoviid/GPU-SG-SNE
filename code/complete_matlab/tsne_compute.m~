@@ -1,4 +1,4 @@
-function [ydata] = tsne_compute(P, labels, no_dims)
+function ydata = tsne_compute(P, labels, no_dims)
 
 if ~exist('labels', 'var')
     labels = [];
@@ -44,7 +44,7 @@ gains = ones(size(ydata));
 
 % Run the iterations
 for iter=1:max_iter
-
+    %ydata=ydata/max(max(ydata));
     % Compute joint probability that point i and j are neighbors
     sum_ydata = sum(ydata .^ 2, 2);
     num = 1 ./ (1 + bsxfun(@plus, sum_ydata, bsxfun(@plus, sum_ydata', -2 * (ydata * ydata')))); % Student-t distribution
@@ -62,11 +62,13 @@ for iter=1:max_iter
     
     
     rep=repulsive(ydata,n,no_dims);
-    %y_grads=y_grads-4*rep;
+    
     realRep=4*(diag(sum(QQ, 1)) - QQ) * ydata;
     error(iter)=norm(realRep-rep*4)/norm(realRep);
     error(iter)=log10(error(iter));
- 
+    if(error(iter)<10^(-2))
+        disp('Success');
+    end
     % Update the solution
     gains = (gains + .2) .* (sign(y_grads) ~= sign(y_incs)) ...         % note that the y_grads are actually -y_grads
         + (gains * .8) .* (sign(y_grads) == sign(y_incs));
