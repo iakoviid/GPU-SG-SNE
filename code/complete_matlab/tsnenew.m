@@ -1,14 +1,10 @@
 % Load data
 clear;
-% load 'mnist_train.mat'
-% ind=randperm(size(train_X, 1));
-k=500;
-% train_X=train_X(ind(1:k),:);
-% train_labels=train_labels(ind(1:k));
-%train_X=train_X(1:k,:);
-%train_labels=train_labels(1:k);
-load 'labls.mat'
-load 'trainX.mat'
+load 'mnist_train.mat'
+k=10000;
+ind=randperm(size(train_X, 1));
+train_X=train_X(ind(1:k),:);
+train_labels=train_labels(ind(1:k));
 
 % Set parameters
 no_dims= 2;
@@ -41,32 +37,45 @@ X = bsxfun(@minus, X, mean(X, 1)) * M;
 clear M lambda ind
 
 
-
-
-
 % Compute pairwise distance matrix
 sum_X = sum(X .^ 2, 2);
 D = bsxfun(@plus, sum_X, bsxfun(@plus, sum_X', -2 * (X * X')));
+nneig=60;
+idx=knnsearch(X,X,'k',nneig);
+
+%D=D.*points;
 
 % Compute joint probabilities
-[P ,beta]= d2p(D, perplexity, 1e-5); % compute affinities using fixed perplexity
-clear D
-nneig=30;
-idx=knnsearch(X,X,'k',nneig);
-points=zeros(k,k);
-%build knn graph make p sparse 
-for(i =1:500)
-    points(i,idx(i,:))=1;
-    points(i,i)=0;
+[beta]= d2pbeta(D, perplexity, 1e-5); % compute affinities using fixed perplexity
+P_tilde=sparse(k,k);
+for(i =1:k)
+    for j=2:nneig
+         P_tilde(i,idx(i,j))=exp(-beta(i)*D(i,idx(i,j)));
+    end
+    P_tilde(i,:)=P_tilde(i,:)/sum(P_tilde(i,:));
 end
-
-P=P.*points;
-P=(P+P')/(2*nneig);    
- 
+clear D
+% nneig=60;
+% idx=knnsearch(X,X,'k',nneig);
+% points=zeros(k,k);
+% %build knn graph make p sparse 
+% for(i =1:k)
+%     points(i,idx(i,:))=1;
+%     points(i,i)=0;
+% end
+% 
+% P_tilde=P.*points;
+% clear P
+% clear points
+% P_tilde=(P_tilde+P_tilde')/(2*nneig);    
+% P_tilde=sparse(P_tilde);
    
 % Run t-SNE
-[ydata] = tsne_compute(P, train_labels, no_dims);
-%Plot Results
+no_dims = .0001 * randn(k, no_dims);
+%[ydata, ydataex] = tsne_compute(P,P_tilde, train_labels, no_dims,k);
+[ydata]= tsne_computeAprox(P_tilde, train_labels, no_dims,k);
+no_dims=size(ydata,2);
+%Plot Results 
 if(no_dims==1)
 %stem(train_labels,ydata)
 figure();
@@ -75,11 +84,18 @@ for i=1:10
     plot(train_labels(idx),ydata(idx),"*",'linewidth',4);
     hold on;
 end
-title("MNIST 500 sampled points exact t-SNE");
+title("MNIST "+n+" sampled points exact t-SNE");
 xlabel('digit');
 ylabel('value');
 end
 if(no_dims==2)
+    figure();
     gscatter(ydata(:,1),ydata(:,2),train_labels);
+    title("MNIST "+n+" sampled points approx t-SNE");
+
+    figure();
+    gscatter(ydataex(:,1),ydataex(:,2),train_labels);
+    title("MNIST "+n+" sampled points exact t-SNE");
+
 end
     

@@ -1,8 +1,10 @@
 function [rep] =  compute4D(Y,charges,Nint,k,squared,n,nsums)
 
 
-minY=min(Y,[],1);
-maxY=max(Y,[],1);
+minY=min(Y(:));
+minY=[minY minY minY minY];
+maxY=max(Y(:));
+maxY=[maxY maxY maxY maxY];
 
 
 box_width=(maxY(1)-minY(1))/Nint;

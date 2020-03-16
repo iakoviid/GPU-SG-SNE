@@ -1,4 +1,4 @@
-function [ydata] = tsne_compute(P, labels, no_dims)
+function [ydata, ydataex] = tsne_compute(P,P_tilde, labels, no_dims,n)
 
 if ~exist('labels', 'var')
     labels = [];
@@ -11,18 +11,18 @@ end
 if numel(no_dims) > 1
     initial_solution = true;
     ydata = no_dims;
+    ydataex=no_dims;
     no_dims = size(ydata, 2);
 else
     initial_solution = false;
 end
 
 % Initialize some variables
-n = size(P, 1);                                     % number of instances
 momentum = 0.5;                                     % initial momentum
 final_momentum = 0.8;                               % value to which momentum is changed
 mom_switch_iter = 250;                              % iteration at which momentum is changed
 stop_lying_iter = 100;                              % iteration at which lying about P-values is stopped
-max_iter = 1000;                                    % maximum number of iterations
+max_iter = 10000;                                    % maximum number of iterations
 epsilon = 500;                                      % initial learning rate
 min_gain = .01;                                     % minimum gain for delta-bar-delta
 
@@ -30,81 +30,74 @@ min_gain = .01;                                     % minimum gain for delta-bar
 P(1:n + 1:end) = 0;                                 % set diagonal to zero
 P = 0.5 * (P + P');                                 % symmetrize P-values
 P = max(P ./ sum(P(:)), realmin);                   % make sure P-values sum to one
-const = sum(P(:) .* log(P(:)));                     % constant in KL divergence
-if ~initial_solution
-    P = P * 4;                                      % lie about the P-vals to find better local minima
-end
+%const = sum(P(:) .* log(P(:)));                     % constant in KL divergence
+P = P * 4;                                      % lie about the P-vals to find better local minima
+
+P_tilde(1:n + 1:end) = 0;                                 % set diagonal to zero
+P_tilde = 0.5 * (P_tilde + P_tilde');                                 % symmetrize P-values
+P_tilde = max(P_tilde ./ sum(P_tilde(:)), realmin);                   % make sure P-values sum to one
+P_tilde = P_tilde * 4;                                      % lie about the P-vals to find better local minima
+
 
 % Initialize the solution
 if ~initial_solution
     ydata = .0001 * randn(n, no_dims);
 end
+
 y_incs  = zeros(size(ydata));
 gains = ones(size(ydata));
 
+y_incs2  = zeros(size(ydata));
+gains2 = ones(size(ydata));
+
 % Run the iterations
 for iter=1:max_iter
+    [Fatr,Frep]=exactGradient(ydata,P,n);
+    [Fatr_tilde,Frep_tilde]=aproxGradient(ydata,P_tilde,no_dims,n);
 
-    % Compute joint probability that point i and j are neighbors
-    sum_ydata = sum(ydata .^ 2, 2);
-    num = 1 ./ (1 + bsxfun(@plus, sum_ydata, bsxfun(@plus, sum_ydata', -2 * (ydata * ydata')))); % Student-t distribution
-    num(1:n+1:end) = 0;                                                 % set diagonal to zero
-    Q = max(num ./ sum(num(:)), realmin);                               % normalize to get probabilities
+    y_grads=Fatr-Frep;
+    grad_aprox=Fatr_tilde-Frep_tilde;
     
-    % Compute the gradients (faster implementation)
-    L = (P - Q) .* num;
-    y_grads = 4 * (diag(sum(L, 1)) - L) * ydata;
-    PP=(P.*num);
-    QQ=Q.*num;
-    y_grads=4*(diag(sum(PP, 1)) - PP) * ydata;
-    y_grads=y_grads-4*(diag(sum(QQ, 1))) * ydata;
-    y_grads=y_grads+4*QQ*ydata;
+    error_rep(iter)=norm(Frep-Frep_tilde)/norm(Frep);
+    error_rep(iter)=log10(error_rep(iter));
     
+    error_atr(iter)=norm(Fatr-Fatr_tilde)/norm(Fatr);
+    error_atr(iter)=log10(error_atr(iter));
     
-    rep=repulsive(ydata,n,no_dims);
-    %y_grads=y_grads-4*rep;
-    realRep=4*(diag(sum(QQ, 1)) - QQ) * ydata;
-    error(iter)=norm(realRep-rep*4)/norm(realRep);
-    error(iter)=log10(error(iter));
- 
+    error_grad(iter)=norm(y_grads-grad_aprox)/norm(y_grads);
+    error_grad(iter)=log10(error_grad(iter));
     % Update the solution
-    gains = (gains + .2) .* (sign(y_grads) ~= sign(y_incs)) ...         % note that the y_grads are actually -y_grads
-        + (gains * .8) .* (sign(y_grads) == sign(y_incs));
-    gains(gains < min_gain) = min_gain;
-    y_incs = momentum * y_incs - epsilon * (gains .* y_grads);
-    ydata = ydata + y_incs;
-    ydata = bsxfun(@minus, ydata, mean(ydata, 1));
+    [ydata,gains,y_incs]=updateY(ydata,y_incs,gains,min_gain,momentum,epsilon,grad_aprox);
+    
+    [Fatr,Frep]=exactGradient(ydataex,P,n);
+    y_grads=Fatr-Frep;
+    [ydataex,gains2,y_incs2]=updateY(ydataex,y_incs2,gains2,min_gain,momentum,epsilon,y_grads);
     
     % Update the momentum if necessary
     if iter == mom_switch_iter
         momentum = final_momentum;
     end
-    if iter == stop_lying_iter && ~initial_solution
+    if iter == stop_lying_iter
         P = P ./ 4;
+        P_tilde=P_tilde./4;
     end
     
-    %         % Print out progress
-    %         if ~rem(iter, 10)
-    %             cost = const - sum(P(:) .* log(Q(:)));
-    %             disp(['Iteration ' num2str(iter) ': error is ' num2str(cost)]);
-    %         end
-    %
-    %         % Display scatter plot (maximally first three dimensions)
-    %         if ~rem(iter, 10) && ~isempty(labels)
-    %             if no_dims == 1
-    %                 scatter(ydata, ydata, 9, labels, 'filled');
-    %             elseif no_dims == 2
-    %                 scatter(ydata(:,1), ydata(:,2), 9, labels, 'filled');
-    %             else
-    %                 scatter3(ydata(:,1), ydata(:,2), ydata(:,3), 40, labels, 'filled');
-    %             end
-    %             axis tight
-    %             axis off
-    %             drawnow
-    %         end
 end
-plot(error,'linewidth',4)
+figure();
+plot(error_rep,'linewidth',4)
 xlabel('Iteration')
 ylabel('log10(RRSE)')
 title('Repulsive Error for 1000 Gradient Descent Iterations')
+figure();
+plot(error_atr,'linewidth',4)
+xlabel('Iteration')
+ylabel('log10(RRSE)')
+title('Attractive Error for 1000 Gradient Descent Iterations')
+
+figure();
+plot(error_grad,'linewidth',4)
+xlabel('Iteration')
+ylabel('log10(RRSE)')
+title('Total Gradient Error for 1000 Gradient Descent Iterations')
+
 end

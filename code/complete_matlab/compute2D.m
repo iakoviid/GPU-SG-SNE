@@ -1,14 +1,16 @@
 function [rep] =  compute2D(Y,charges,Nint,k,squared,n,nsums)
 % locs=Y;
 % flt2Dimproved;
-minx=min(Y(:,1));
-maxx=max(Y(:,1));
-miny=min(Y(:,2));
-maxy=max(Y(:,2));
-maxy=max([maxx maxy]);
-miny=max([minx miny]);
-minx=miny;
-maxx=maxy;
+minx=min(Y(:));
+maxx=max(Y(:));
+miny=minx;
+maxy=maxx;
+
+% minx=-50;
+% maxx=50;
+% miny=-50;
+% maxy=50;
+
 box_width=(maxx-minx)/Nint; %see it 
 N1d = Nint * k;
 total_boxes=Nint^2;
