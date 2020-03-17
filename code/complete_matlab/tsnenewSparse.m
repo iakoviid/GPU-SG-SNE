@@ -1,10 +1,11 @@
 % Load data
 clear;
 load 'mnist_train.mat'
-k=2000;
+n=30000;
+max_iter=1000;
 ind=randperm(size(train_X, 1));
-train_X=train_X(ind(1:k),:);
-train_labels=train_labels(ind(1:k));
+train_X=train_X(ind(1:n),:);
+train_labels=train_labels(ind(1:n));
 
 % Set parameters
 no_dims= 2;
@@ -12,33 +13,28 @@ initial_dims= 50;
 perplexity= 30;
 
 % preproccessing
-
-% Normalize input data
-[X] = preproccessing(train_X);
+[X] = preproccessing(train_X,initial_dims);
 
 
 % Compute pairwise distance matrix
-sum_X = sum(X .^ 2, 2);
-D = bsxfun(@plus, sum_X, bsxfun(@plus, sum_X', -2 * (X * X')));
+
+nneig=90;
+[idx,D]=knnsearch(X,X,'k',nneig);
+
 
 % Compute joint probabilities
-[P,beta]= d2p(D, perplexity, 1e-5); % compute affinities using fixed perplexity
-nneig=60;
-idx=knnsearch(X,X,'k',nneig);
-P_tilde=sparse(k,k);
-for(i =1:k)
-    for j=2:nneig
-         P_tilde(i,idx(i,j))=exp(-beta(i)*D(i,idx(i,j)));
-    end
-    P_tilde(i,:)=P_tilde(i,:)/sum(P_tilde(i,:));
+[ beta] = d2pSparse(D, perplexity,1e-5);
+P_tilde=sparse(n,n);
+for(i=1:n)
+    P_tilde(i,idx(i,2:end))=exp(-D(i,2:end)*beta(i));
+    s=sum(exp(-D(i,2:end)*beta(i)));
+    P_tilde(i,:)=P_tilde(i,:)/s;
 end
-clear D
-
+clear D idx X
    
 % Run t-SNE
 no_dims = .0001 * randn(k, no_dims);
-[ydata]= tsne_compute(P,P_tilde, train_labels, no_dims,k);
-
+[ydata]= tsne_computeAprox(P_tilde, train_labels, no_dims,n,max_iter);
 no_dims=size(ydata,2);
 %Plot Results 
 if(no_dims==1)
@@ -58,9 +54,9 @@ if(no_dims==2)
     gscatter(ydata(:,1),ydata(:,2),train_labels);
     title("MNIST "+n+" sampled points approx t-SNE");
 
-    figure();
-    gscatter(ydataex(:,1),ydataex(:,2),train_labels);
-    title("MNIST "+n+" sampled points exact t-SNE");
 
+end
+if(no_dims==3)
+    graph3D(ydata,train_labels);    
 end
     

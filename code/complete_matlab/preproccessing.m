@@ -1,4 +1,4 @@
-function [X] = preproccessing(train_X)
+function [X] = preproccessing(train_X,initial_dims)
 
     % Normalize input data
     train_X = train_X - min(train_X(:));
