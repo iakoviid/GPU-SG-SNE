@@ -1,4 +1,4 @@
-function [ beta] = d2pSparse(D, u, tol)
+function [ beta,v] = d2pSparse(X, u, tol,idx)
 
 
     if ~exist('u', 'var') || isempty(u)
@@ -9,13 +9,15 @@ function [ beta] = d2pSparse(D, u, tol)
     end
     
     % Initialize some variables
-    n = size(D, 1);                     % number of instances
+    sum_X = sum(X .^ 2, 2);
+    n = size(X, 1);                     % number of instances
     beta = ones(n, 1);                  % empty precision vector
     logU = log(u);                      % log of perplexity (= entropy)
+    v=zeros(n,size(idx,2)-1);
 
     % Run over all datapoints
     for i=1:n
-        
+        D=sum_X(i)+sum_X(:)-2*X*(X(i,:)');
         if ~rem(i, 500)
             disp(['Computed P-values ' num2str(i) ' of ' num2str(n) ' datapoints...']);
         end
@@ -25,7 +27,7 @@ function [ beta] = d2pSparse(D, u, tol)
         betamax = Inf;
 
         % Compute the Gaussian kernel and entropy for the current precision
-        [H] = Hbeta(D(i, :), beta(i));
+        [H, vthis] = Hbeta(D, beta(i),i);
         
         % Evaluate whether the perplexity is within tolerance
         Hdiff = H - logU;
@@ -50,10 +52,12 @@ function [ beta] = d2pSparse(D, u, tol)
             end
             
             % Recompute the values
-            [H] = Hbeta(D(i,:), beta(i));
+            [H, vthis] = Hbeta(D, beta(i),i);
             Hdiff = H - logU;
             tries = tries + 1;
         end
+                v(i,:)=vthis(idx(i,2:end));
+
     end    
     disp(['Mean value of sigma: ' num2str(mean(sqrt(1 ./ beta)))]);
     disp(['Minimum value of sigma: ' num2str(min(sqrt(1 ./ beta)))]);
@@ -65,14 +69,16 @@ end
 % Function that computes the Gaussian kernel values given a vector of
 % squared Euclidean distances, and the precision of the Gaussian kernel.
 % The function also computes the perplexity of the distribution.
-function [H] = Hbeta(D, beta)
+function [H,P] = Hbeta(D, beta,i)
    
    
-    P=exp(-D(2:end)*beta);
-    s=sum(P.*D(2:end));
+    P=exp(-D*beta);
+    P(i)=0;
+    s=sum(P.*D);
     sumP = sum(P);
     H = log(sumP) + beta * s/ sumP;
     % why not: H = exp(-sum(P(P > 1e-5) .* log(P(P > 1e-5)))); ???
-    %P = P / sumP;
+    P = P / sumP;
+    
 end
 

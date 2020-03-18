@@ -1,14 +1,15 @@
 function [rep] = repulsive(Y,n,nodims)
 if(nodims==1)
    width=max(Y(:))-min(Y(:));   
-   
+   Nint=max(20,ceil(width));
+
    rep=gradFft1D(Y,n,Nint,5);       
 elseif(nodims==2)
-   width=1.7*(max(Y(:))-min(Y(:)));
+   width=1.4*(max(Y(:))-min(Y(:)));
    Nint=max(20,ceil(width));
    Nint=min(195,Nint);
    disp(Nint);
-   rep=gradFft2D(Y,n,Nint,5);
+   rep=gradFft2D(Y,n,Nint,3);
 elseif(nodims==3)
    width=1.3*(max(Y(:))-min(Y(:)));
    Nint=max(14,ceil(width));

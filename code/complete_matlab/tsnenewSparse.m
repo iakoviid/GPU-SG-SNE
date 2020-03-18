@@ -1,7 +1,7 @@
 % Load data
 clear;
 load 'mnist_train.mat'
-n=30000;
+n=2000;
 max_iter=1000;
 ind=randperm(size(train_X, 1));
 train_X=train_X(ind(1:n),:);
@@ -18,27 +18,26 @@ perplexity= 30;
 
 % Compute pairwise distance matrix
 
-nneig=90;
-[idx,D]=knnsearch(X,X,'k',nneig);
+nneig=91;
+[idx]=knnsearch(X,X,'k',nneig);
 
 
 % Compute joint probabilities
-[ beta] = d2pSparse(D, perplexity,1e-5);
-P_tilde=sparse(n,n);
-for(i=1:n)
-    P_tilde(i,idx(i,2:end))=exp(-D(i,2:end)*beta(i));
-    s=sum(exp(-D(i,2:end)*beta(i)));
-    P_tilde(i,:)=P_tilde(i,:)/s;
+[ beta,v] = d2pSparse(X, perplexity,1e-5,idx);
+a=[];
+for i=1:nneig-1
+    a=[a [1:n]'];
 end
-clear D idx X
-   
+P_tilde=sparse(a,idx(:,2:end),v);
+
+clear idx X a
+
 % Run t-SNE
-no_dims = .0001 * randn(k, no_dims);
+no_dims = .0001 * randn(n, no_dims);
 [ydata]= tsne_computeAprox(P_tilde, train_labels, no_dims,n,max_iter);
 no_dims=size(ydata,2);
 %Plot Results 
 if(no_dims==1)
-%stem(train_labels,ydata)
 figure();
 for i=1:10
     idx=train_labels==i;

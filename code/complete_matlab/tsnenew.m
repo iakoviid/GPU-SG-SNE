@@ -1,7 +1,7 @@
 % Load data
 clear;
 load 'mnist_train.mat'
-n=10000;
+n=500;
 max_iter=1000;
 ind=randperm(size(train_X, 1));
 train_X=train_X(ind(1:n),:);
@@ -26,7 +26,7 @@ idx=knnsearch(X,X,'k',nneig);
 
 % Compute joint probabilities
 [beta]= d2pbeta(D, perplexity, 1e-5); % compute affinities using fixed perplexity
-P_tilde=sparse(n,n);
+P_tilde=spalloc(n,n,nneig-1);
 for(i =1:n)
     for j=2:nneig
          P_tilde(i,idx(i,j))=exp(-beta(i)*D(i,idx(i,j)));

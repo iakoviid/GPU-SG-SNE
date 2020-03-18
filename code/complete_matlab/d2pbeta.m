@@ -27,7 +27,6 @@ function [ beta] = d2pbeta(D, u, tol)
     n = size(D, 1);                     % number of instances
     beta = ones(n, 1);                  % empty precision vector
     logU = log(u);                      % log of perplexity (= entropy)
-
     % Run over all datapoints
     for i=1:n
         
@@ -86,6 +85,6 @@ function [H] = Hbeta(D, beta)
     sumP = sum(P);
     H = log(sumP) + beta * sum(D .* P) / sumP;
     % why not: H = exp(-sum(P(P > 1e-5) .* log(P(P > 1e-5)))); ???
-    P = P / sumP;
+    %P = P / sumP;
 end
 

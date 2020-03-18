@@ -1,7 +1,7 @@
 % Load data
 clear;
 load 'mnist_train.mat'
-n=2000;
+n=500;
 max_iter=10000;
 ind=randperm(size(train_X, 1));
 train_X=train_X(ind(1:n),:);

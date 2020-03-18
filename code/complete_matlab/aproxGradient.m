@@ -5,8 +5,10 @@ function     [Fatr_tilde,Frep_tilde]=aproxGradient(ydata,P,no_dims,n)
     num(1:n+1:end) = 0;                                                 % set diagonal to zero
     
     PP=(P.*num);
+    
     Fatr_tilde=4*(diag(sum(PP, 1)) - PP) * ydata;
-    Frep_tilde=4*repulsive(ydata,n,no_dims);  
+% Fatr_tilde=attractiveSparse(ydata,P);
+Frep_tilde=4*repulsive(ydata,n,no_dims);  
 
 
 
