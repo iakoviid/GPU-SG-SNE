@@ -38,9 +38,9 @@ function ydata = tsne_p(P, labels, no_dims)
     momentum = 0.5;                                     % initial momentum
     final_momentum = 0.8;                               % value to which momentum is changed
     mom_switch_iter = 250;                              % iteration at which momentum is changed
-    stop_lying_iter = 100;                              % iteration at which lying about P-values is stopped
+    stop_lying_iter = 250;                              % iteration at which lying about P-values is stopped
     max_iter = 1000;                                    % maximum number of iterations
-    epsilon = 500;                                      % initial learning rate
+    epsilon = 200;                                      % initial learning rate
     min_gain = .01;                                     % minimum gain for delta-bar-delta
     
     % Make sure P-vals are set properly
@@ -49,7 +49,7 @@ function ydata = tsne_p(P, labels, no_dims)
     P = max(P ./ sum(P(:)), realmin);                   % make sure P-values sum to one
     const = sum(P(:) .* log(P(:)));                     % constant in KL divergence
     if ~initial_solution
-        P = P * 4;                                      % lie about the P-vals to find better local minima
+        P = P * 12;                                      % lie about the P-vals to find better local minima
     end
     
     % Initialize the solution
@@ -86,7 +86,7 @@ function ydata = tsne_p(P, labels, no_dims)
             momentum = final_momentum;
         end
         if iter == stop_lying_iter && ~initial_solution
-            P = P ./ 4;
+            P = P ./ 12;
         end
         
         % Print out progress

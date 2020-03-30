@@ -1,0 +1,44 @@
+function [b] = g2g2dnopadd(w,N1d,x_tilde,y_tilde,squared,nsums)
+kernel_tilde=zeros(N1d,N1d);
+b=zeros(N1d^2,nsums);
+wc = exp( -2*pi*1i*[0:N1d-1]'/(2*N1d) );
+
+for i = 0:N1d-1
+    for j =0:N1d-1
+        tmp=kernel([x_tilde(1) y_tilde(1)],[x_tilde(i+1) y_tilde(j+1)],squared);
+        kernel_tilde(i+1,j+1) = tmp;
+        
+    end
+end
+Kc=kernel_tilde+[zeros(N1d,1) kernel_tilde(:,N1d:-1:2)]+[zeros(1,N1d); kernel_tilde(N1d:-1:2,:)]+[zeros(1,N1d);zeros(N1d-1,1)  kernel_tilde(N1d:-1:2,N1d:-1:2)];
+for nterms=1:nsums
+       v=vec2mat(w(:,nterms),N1d);
+       v=ifft2(fft2(v).*fft2(Kc));
+       b(:,nterms)=reshape(v.',1,[]);
+end
+Kc=kernel_tilde-[zeros(N1d,1) kernel_tilde(:,N1d:-1:2)]+[zeros(1,N1d); kernel_tilde(N1d:-1:2,:)]-[zeros(1,N1d);zeros(N1d-1,1)  kernel_tilde(N1d:-1:2,N1d:-1:2)];
+Kc=(wc.').*Kc;
+for nterms=1:nsums
+       v=(wc.').*vec2mat(w(:,nterms),N1d);
+       v=conj(wc.').*ifft2(fft2(v).*fft2(Kc));
+       b(:,nterms)=b(:,nterms)+reshape(v.',1,[])';
+end
+
+Kc=kernel_tilde+[zeros(N1d,1) kernel_tilde(:,N1d:-1:2)]-[zeros(1,N1d); kernel_tilde(N1d:-1:2,:)]-[zeros(1,N1d);zeros(N1d-1,1)  kernel_tilde(N1d:-1:2,N1d:-1:2)];
+Kc=wc.*Kc;
+for nterms=1:nsums
+       v=wc.*vec2mat(w(:,nterms),N1d);
+       v=conj(wc).*ifft2(fft2(v).*fft2(Kc));
+       b(:,nterms)=b(:,nterms)+reshape(v.',1,[])';
+end
+Kc=kernel_tilde-[zeros(N1d,1) kernel_tilde(:,N1d:-1:2)]-[zeros(1,N1d); kernel_tilde(N1d:-1:2,:)]+[zeros(1,N1d);zeros(N1d-1,1)  kernel_tilde(N1d:-1:2,N1d:-1:2)];
+Kc=wc.*(Kc.*wc.');
+for nterms=1:nsums
+       v=wc.*(vec2mat(w(:,nterms),N1d).*wc.');
+       v=conj(wc).*ifft2(fft2(v).*fft2(Kc)).*conj(wc).';
+       b(:,nterms)=b(:,nterms)+(reshape(v.',1,[]))';
+end
+b=real(b)/4;
+
+end
+

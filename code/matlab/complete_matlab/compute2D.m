@@ -47,23 +47,6 @@ for (i = 2:N1d)
     y_tilde(i)=y_tilde(i - 1) + h;
 end
 
-
-kernel_tilde=zeros(2*N1d,2*N1d);
-for i = 0:N1d-1
-    for j =0:N1d-1
-
-        tmp=kernel([x_tilde(1) y_tilde(1)],[x_tilde(i+1) y_tilde(j+1)],squared);
-
-        for signi=-1:2:1
-            for signj=-1:2:1
-                kernel_tilde((N1d +signi*i)+1 , (N1d + signj*j)+1) = tmp;
-            end
-        end
-    end
-end
-
-fft_kernel=fft2(kernel_tilde);
-
 total_interp_point=N1d^2;
 
 
@@ -129,19 +112,7 @@ for i=1:n
         end
     end
 end
-
-b=zeros(N1d^2,nsums);
-for nterms=1:nsums
-    fa=vec2mat(w(:,nterms),N1d);
-    fa=[zeros(N1d,2*N1d);zeros(N1d,N1d) fa ];
-    result=ifft2(fft_kernel.*fft2(fa));
-    result= result(1:N1d,1:N1d);
-    b(:,nterms)=reshape(result.',1,[]);
-
-
-end
-
-
+b=g2g2dnopadd2(w,N1d,x_tilde,y_tilde,squared,nsums);
 fpol=zeros(n,nsums);
 
 for i=1:n
@@ -152,7 +123,7 @@ for i=1:n
         for ( interp_j  = 0:k-1)
             idx = (box_i * k + interp_i) * (Nint * k) + (box_j * k) + interp_j;
             for nterms=1:nsums
-                 fpol(i,nterms)= fpol(i,nterms)+Vx(i,interp_i+1)*Vy(i,interp_j+1)*b(idx+1,nterms);
+                 fpol(i,nterms)= fpol(i,nterms)+Vx(i,interp_i+1)*Vy(i,interp_j+1)*b(floor(idx/N1d)+1,mod(idx,N1d)+1,nterms);
             end
         end
     end

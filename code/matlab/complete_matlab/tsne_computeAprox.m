@@ -1,4 +1,4 @@
-function [ydata] = tsne_computeAprox(P_tilde, labels, no_dims,n,max_iter)
+function [ydata] = tsne_computeAprox(P_tilde, labels, no_dims,n,max_iter,exag)
 
 if ~exist('labels', 'var')
     labels = [];
@@ -20,16 +20,11 @@ end
 momentum = 0.5;                                     % initial momentum
 final_momentum = 0.8;                               % value to which momentum is changed
 mom_switch_iter = 250;                              % iteration at which momentum is changed
-stop_lying_iter = 100;                              % iteration at which lying about P-values is stopped
-epsilon = 500;                                      % initial learning rate
+stop_lying_iter = 250;                              % iteration at which lying about P-values is stopped
+epsilon = 200;                                      % initial learning rate
 min_gain = .01;                                     % minimum gain for delta-bar-delta
 
-
-P_tilde(1:n + 1:end) = 0;                                 % set diagonal to zero
-%P_tilde = 0.5 * (P_tilde + P_tilde');                                 % symmetrize P-values
-P_tilde = (P_tilde ./ sum(P_tilde(:)));                   % make sure P-values sum to one
-P_tilde = P_tilde * 4;                                      % lie about the P-vals to find better local minima
-
+P_tilde = P_tilde * exag;                                      % lie about the P-vals to find better local minima
 
 % Initialize the solution
 if ~initial_solution
@@ -42,6 +37,10 @@ gains = ones(size(ydata));
 
 % Run the iterations
 for iter=1:max_iter
+    if(mod(iter,100)==0)
+        width=max(abs(ydata(:)));
+        disp(iter+" iteration width= "+width);
+    end
     [Fatr_tilde,Frep_tilde]=aproxGradient(ydata,P_tilde,no_dims,n);
 
     grad_aprox=Fatr_tilde-Frep_tilde;
@@ -55,7 +54,7 @@ for iter=1:max_iter
         momentum = final_momentum;
     end
     if iter == stop_lying_iter
-        P_tilde=P_tilde./4;
+        P_tilde=P_tilde./(exag);
     end
     
 end
