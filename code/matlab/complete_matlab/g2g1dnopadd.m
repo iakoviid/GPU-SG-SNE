@@ -1,7 +1,12 @@
-function [b] = g2g1dnopadd(w,N1d,x_tilde,squared,nsums)
+function [b] = g2g1dnopadd(w,N1d,h,squared,nsums)
+
 kernel_tilde=zeros(N1d,1);
 for j = 1:N1d
-        tmp=kernel(x_tilde(1),x_tilde(j),squared);
+        %tmp=kernel(x_tilde(1),x_tilde(j),squared);
+        tmp=1/(1+((j-1)*h)^2);
+        if (squared)
+            tmp=tmp^2;
+        end
         kernel_tilde(j)=tmp;
 end
 

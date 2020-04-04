@@ -1,5 +1,7 @@
 function [b] = g2g4dnopadd(w,N1d,y_tilde,squared,nsums)
 v=zeros(N1d,N1d,N1d,N1d,nsums);
+v1=zeros(N1d,N1d,N1d,N1d,nsums);
+
 b=zeros(N1d,N1d,N1d,N1d,nsums);
 wc = exp( -2*pi*1i*[0:N1d-1]'/(2*N1d) );
 conjwc=conj(wc);
@@ -7,9 +9,8 @@ for nterms=1:nsums
     for(i=1:N1d)
         for(j=1:N1d)
             for(z=1:N1d)
-                for(t=1:N1d)
-                    
-                    v(i,j,z,t,nterms)=w((j-1)*N1d+i+(z-1)*N1d^2+(t-1)*N1d^3,nterms);
+                for(t=1:N1d)      
+                    v1(i,j,z,t,nterms)=w((j-1)*N1d+i+(z-1)*N1d^2+(t-1)*N1d^3,nterms);
                 end
             end
         end
@@ -20,18 +21,7 @@ for signt=1:-2:-1
         for signj=1:-2:-1
             for signi=1:-2:-1
                 Kc=zeros(N1d,N1d,N1d,N1d);
-                for nterms=1:nsums
-                    for(i=1:N1d)
-                        for(j=1:N1d)
-                            for(z=1:N1d)
-                                for(t=1:N1d)
-                                    
-                                    v(i,j,z,t,nterms)=w((j-1)*N1d+i+(z-1)*N1d^2+(t-1)*N1d^3,nterms);
-                                end
-                            end
-                        end
-                    end
-                end
+                v=v1;
                 for i = 0:N1d-1
                     for j =0:N1d-1
                         for z=0:N1d-1
@@ -78,18 +68,16 @@ for signt=1:-2:-1
                     
                     for(indexi=1:N1d)
                         Kc(indexi,:,:,:)=wc(indexi)*Kc(indexi,:,:,:);
-                        for nterms=1:nsums
-                            v(indexi,:,:,:,nterms)=wc(indexi)*v(indexi,:,:,:,nterms);
-                        end
+                        v(indexi,:,:,:,:)=wc(indexi)*v(indexi,:,:,:,:);
+                        
                     end
                 end
                 
                 if(signj==-1)
                     for(indexi=1:N1d)
                         Kc(:,indexi,:,:)=wc(indexi)*Kc(:,indexi,:,:);
-                        for nterms=1:nsums
-                            v(:,indexi,:,:,nterms)=wc(indexi)*v(:,indexi,:,:,nterms);
-                        end
+                        v(:,indexi,:,:,:)=wc(indexi)*v(:,indexi,:,:,:);
+                        
                     end
                 end
                 
@@ -109,17 +97,13 @@ for signt=1:-2:-1
                 end
                 if(signi==-1)
                     for(indexi=1:N1d)
-                        for nterms=1:nsums
-                            result(indexi,:,:,:,nterms)=conjwc(indexi)*result(indexi,:,:,:,nterms);
-                        end
+                         result(indexi,:,:,:,:)=conjwc(indexi)*result(indexi,:,:,:,:);
                     end
                 end
                 
                 if(signj==-1)
                     for(indexi=1:N1d)
-                        for nterms=1:nsums
-                            result(:,indexi,:,:,nterms)=conjwc(indexi)*result(:,indexi,:,:,nterms);
-                        end
+                        result(:,indexi,:,:,:)=conjwc(indexi)*result(:,indexi,:,:,:);
                     end
                 end
                 b=b+real(result);

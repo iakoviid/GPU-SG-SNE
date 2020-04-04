@@ -53,28 +53,6 @@ for (i = 2:N1d)
 end
 
 
-kernel_tilde=zeros(2*N1d,2*N1d,2*N1d,2*N1d);
-for i = 0:N1d-1
-    for j =0:N1d-1
-        for z=0:N1d-1
-            for t=0:N1d-1
-            tmp=kernel([y_tilde(1,1) y_tilde(1,2) y_tilde(1,3) y_tilde(1,4)],[y_tilde(i+1,1) y_tilde(j+1,2) y_tilde(z+1,3) y_tilde(t+1,4)],squared);
-            for signi=-1:2:1
-                for signj=-1:2:1
-                    for signz=-1:2:1
-                       for signt=-1:2:1
-                        kernel_tilde((N1d +signi*i)+1 , (N1d + signj*j)+1,(N1d + signz*z)+1,(N1d + signt*t)+1 ) = tmp;
-                    end
-                end
-                end
-            end
-            end
-        end
-    end
-end
-
-fft_kernel=fftn(kernel_tilde);
-
 total_interp_point=N1d^4;
 
 
@@ -178,34 +156,8 @@ for i=1:n
     end
 end
 
-b=zeros(N1d^4,nsums);
-for nterms=1:nsums
-    fa=zeros(2*N1d,2*N1d,2*N1d,2*N1d);
-    for(i=1:N1d)
-        for(j=1:N1d)
-            for(z=1:N1d)
-                for(t=1:N1d)
-
-                fa(i+N1d,j+N1d,z+N1d,t+N1d)=w((i-1)*N1d+j+(z-1)*N1d^2+(t-1)*N1d^3,nterms);
-                end
-            end
-        end
-    end
-    result=ifftn(fftn(fa).*fft_kernel);
-    
-    result= result(1:N1d,1:N1d,1:N1d,1:N1d);
-    for(i=1:N1d)
-        for(j=1:N1d)
-            for(z=1:N1d)
-                for(t=1:N1d)
-                b((i-1)*N1d+(z-1)*N1d^2+j+(t-1)*N1d^3,nterms)=result(i,j,z,t);
-                end
-            end
-        end
-    end
-    
-end
-
+%b=g2g4D(w,y_tilde,squared,N1d,nsums);
+b1= g2g4dnopadd(w,N1d,y_tilde,squared,nsums);
 
 fpol=zeros(n,nsums);
 
@@ -225,7 +177,12 @@ for i=1:n
                 idx = (((box_i * k + interp_i) *(N1d) + (box_j * k + interp_j))*(N1d)+ (box_z * k) + interp_z)*N1d+(box_t * k) + interp_t;
                 
                 for nterms=1:nsums
-                    fpol(i,nterms)= fpol(i,nterms)+Vx(i,interp_i+1)*Vy(i,interp_j+1)*Vz(i,interp_z+1)*Vt(i,interp_t+1)*b(idx+1,nterms);
+                    indext=floor(idx/N1d^3);
+                    indexz=floor((idx-indext*N1d^3)/N1d^2);
+                    indexj=floor((idx-indexz*N1d^2-indext*N1d^3)/N1d);
+                    fpol(i,nterms)= fpol(i,nterms)+Vx(i,interp_i+1)*Vy(i,interp_j+1)*Vz(i,interp_z+1)*Vt(i,interp_t+1)*b1(mod(idx,N1d)+1,indexj+1,indexz+1,indext+1,nterms);
+                    
+                    %disp(abs(b(idx+1,nterms)-b1(mod(idx,N1d)+1,indexj+1,indexz+1,indext+1,nterms)));
                 end
                 
             end

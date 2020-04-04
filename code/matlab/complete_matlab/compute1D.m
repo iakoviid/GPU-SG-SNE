@@ -5,55 +5,35 @@ maxY=max(Y);
 
 box_width=(maxY-minY)/Nint;
 N1d = Nint * k;
+
 %Compute Box bounds
 box_lower_bounds=zeros(Nint,1);
-box_upper_bounds=zeros(Nint,1);
 for i=1:Nint
         box_lower_bounds(i)=box_width*(i-1)+minY;
-        box_upper_bounds(i)=box_width*i+minY;
-    
 end
 
-interp_in_box=zeros(k,1);
-
-% Coordinates of each (equispaced) interpolation node for a single box Change:h/2:h:k*h-h/2
 h = 1 / k;
-% interp_in_box(1) = h / 2;
-% for (i = 2:k) 
-%      interp_in_box(i) = interp_in_box(i - 1) + h;
-% end
+
 interp_in_box=h/2:h:k*h-h/2;
 
-%Coordinates of all the equispaced interpolation points
-n_fft_coeffs = 2 * N1d;
 h = h * box_width;
-x_tilde=zeros(N1d,1);
-x_tilde(1) = minY + h / 2;
-for (i = 2:N1d)
-    x_tilde(i)=x_tilde(i - 1) + h;
-end
 
-
+%creatLookUp1D()
 % We need to be able to look up which box each point belongs to
-box_width=box_upper_bounds(1)-box_lower_bounds(1);
 int_lookup = zeros(n,1);
 
 for i=1:n
     
     current_intx=floor((Y(i,1)-box_lower_bounds(1))/box_width)+1;
-    
-    
     if (current_intx > Nint)
         current_intx = Nint;
     elseif (current_intx <= 0)
         current_intx = 1;
     end
-  
-    
     int_lookup(i) = current_intx;
 end
 
-%%  Compute the relative position of each point in its box in the interval [0, 1]
+%  Compute the relative position of each point in its box in the interval [0, 1]
 points_in_box = zeros(n,1);
 
 for (i = 1: n)
@@ -64,7 +44,6 @@ for (i = 1: n)
 end
 
 
-%% Step 1: Interpolate kernel using Lagrange polynomials and compute the w coefficients
 
 %Compute the interpolated values at each real point with each Lagrange polynomial in the `x` direction
 Vx = zeros(n, k);
@@ -81,7 +60,7 @@ for i=1:n
     end
 end
 
-[b] = g2g1dnopadd(w,N1d,x_tilde,squared,nsums);
+[b] = g2g1dnopadd(w,N1d,box_width/k,squared,nsums);
 
 fpol=zeros(n,nsums);
 

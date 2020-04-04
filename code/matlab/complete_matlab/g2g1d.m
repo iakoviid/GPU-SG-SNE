@@ -1,4 +1,10 @@
-function [b] = g2g1d(w,N1d,x_tilde,squared,nsums)
+function [b] = g2g1d(w,N1d,h,squared,nsums)
+x_tilde=zeros(N1d,1);
+x_tilde(1) = minY + h / 2;
+for (i = 2:N1d)
+    x_tilde(i)=x_tilde(i - 1) + h;
+end
+
 kernel_tilde=zeros(2*N1d,1);
 for i = 0:N1d-1
 
