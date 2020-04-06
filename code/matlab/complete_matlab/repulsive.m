@@ -19,8 +19,8 @@ elseif(nodims==3)
 elseif(nodims==4)
    width=(max(Y(:))-min(Y(:)));
    Nint=max(5,ceil(width));
-   Nint=min(9,Nint);
-   disp(Nint);
+   Nint=min(15,Nint);
+   %disp(Nint);
    rep=gradFft4D(Y,n,Nint,3);
 end
 

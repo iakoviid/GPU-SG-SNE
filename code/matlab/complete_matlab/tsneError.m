@@ -8,7 +8,7 @@ train_X=train_X(ind(1:n),:);
 train_labels=train_labels(ind(1:n));
 
 % Set parameters
-no_dims= 3;
+no_dims= 4;
 initial_dims= 100;
 perplexity= 30;
 exag=12;

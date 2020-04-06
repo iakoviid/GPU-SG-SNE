@@ -1,0 +1,4 @@
+A simple tsne
+and a sg-tsne
+
+Current stage starting writing grad aprox cuda 
