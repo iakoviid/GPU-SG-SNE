@@ -285,6 +285,206 @@ void doSort_top( uint64_t * const Cs, uint64_t * const Ct,
   delete code;
 
 }
+__inline__
+uint32_t untangleLastDim( const uint64_t C,
+                          const uint32_t nDim,
+                          const uint32_t qLevel )
+                          {
+
+  uint32_t Cout = 0;
+
+  switch (nDim) {
+
+  case 1:
+    Cout = (uint32_t) C;
+    break;
+
+  case 2:
+    {
+      uint64_t mask = (1<<2*qLevel) - 1;
+
+      Cout = (uint32_t) ( ( C & mask ) >> qLevel );
+      break;
+    }
+
+  case 3:
+    {
+      uint64_t mask = (1<<3*qLevel) - 1;
+
+      Cout = (uint32_t) ( ( C & mask ) >> 2*qLevel );
+      break;
+    }
+
+  default:
+    {
+      std::cerr << "Supporting up to 3D" << std::endl;
+      exit(1);
+    }
+
+  }
+
+  return Cout;
+
+}
+
+
+void gridSizeAndIdx( uint32_t * const ib,
+                     uint32_t * const cb,
+                     uint64_t const * const C,
+                     const uint32_t nPts,
+                     const uint32_t nDim,
+                     const uint32_t nGridDim )
+                     {
+
+  uint32_t qLevel = ceil(log(nGridDim)/log(2));
+  uint32_t idxCur = -1;
+  printf("-----------------------Punch it mr sulu---------------------\n" );
+  for (uint32_t i = 0; i < nPts; i++){
+
+    uint32_t idxNew = untangleLastDim( C[i], nDim, qLevel );
+    if(i<10){printf("idxNew=%d\n",idxNew );}
+    cb[idxNew]++;
+
+    if (idxNew != idxCur) ib[idxNew+1] = i+1;
+
+  }
+
+}
+__inline__ __device__ uint32_t untangleLastDimDevice(int nDim,int TID,uint32_t qLevel,uint64_t *C ){
+  uint64_t mask;
+  switch (nDim) {
+  case 1:
+    return  (uint32_t) C[TID];
+    break;
+
+  case 2:
+    {
+       mask = (1<<2*qLevel) - 1;
+
+      return (uint32_t) ( ( C[TID] & mask ) >> qLevel );
+      break;
+    }
+
+  case 3:
+    {
+       mask = (1<<3*qLevel) - 1;
+
+      return (uint32_t) ( ( C[TID] & mask ) >> 2*qLevel );
+      break;
+    }
+  }
+}
+//Concern about point 0
+__global__ void gridSizeAndIdxKernel(uint32_t *ib,uint32_t *cb,uint64_t *C,int nPts,int nDim,int nGrid, uint32_t qLevel){
+  uint32_t idxCur;
+  uint32_t idxNew;
+  for(register int TID = threadIdx.x + blockIdx.x * blockDim.x; TID < nPts ;TID+=gridDim.x*blockDim.x){
+
+
+    if(TID<nPts-1){
+      idxNew=untangleLastDimDevice(nDim,TID,qLevel,C);
+      idxCur=untangleLastDimDevice(nDim,TID+1,qLevel,C);
+      if (idxNew != idxCur){ ib[idxCur] = TID+1;}
+      if(idxCur-idxNew>1){ib[idxNew+1] = TID+1;}
+    }else{
+      idxNew=untangleLastDimDevice(nDim,TID,qLevel,C);
+      if (idxNew != idxCur) ib[idxNew+1] = TID+1;
+    }
+
+
+  }
+  for(register int TID = threadIdx.x + blockIdx.x * blockDim.x; TID < nGrid-1 ;TID+=gridDim.x*blockDim.x){
+    idxCur=ib[TID];
+    idxNew=ib[TID+1];
+      cb[TID]=idxNew-idxCur;
+
+
+
+  }
+
+
+
+}
+
+__global__ void ComputeChargesKernel( double* __restrict__ VScat,const double *const y_d,const int n,const int d, const int n_terms){
+
+  for(register int TID = threadIdx.x + blockIdx.x * blockDim.x; TID < n ;TID+=gridDim.x*blockDim.x){
+    for(int j=0;j<d;j++)
+      {VScat[TID+(j+1)*n]=y_d[TID+(j)*n];
+      //if(threadIdx.x==0){printf("y_d[%d]=%lf\n",TID+(j)*n ,y_d[TID+(j)*n]);}
+    }
+    VScat[TID]=1;
+
+}
+
+
+}
+void ComputeCharges(double* VScat,double* y_d,int n,int d){
+  int threads=1024;
+  int Blocks=64;
+  ComputeChargesKernel<<<Blocks,threads>>>(VScat,y_d,n,d,d+1);
+
+}
+__global__ void compute_repulsive_forces_kernel(volatile double *__restrict__ frep,const double *const Y,const int num_points, const int nDim,
+   const double *const Phi,
+    volatile double *__restrict__ zetaVec)
+    {
+      register double Ysq=0;
+      register double z=0;
+
+    for(register int TID = threadIdx.x + blockIdx.x * blockDim.x; TID < num_points;TID+=gridDim.x*blockDim.x){
+
+    for(uint32_t j=0; j<nDim; j++){
+        Ysq+=Y[TID+j*num_points]*Y[TID+j*num_points];
+        z-=2*Y[TID+j*num_points]*Phi[TID*(nDim+1)+j+1];
+    }
+    z+=(1+2*Ysq)*Phi[TID*(nDim+1)];
+    zetaVec[TID]=z;
+    for(uint32_t j=0;j<nDim;j++){
+      frep[TID+j*num_points] = Y[TID+j*num_points]*Phi[TID*(nDim+1)]-Phi[TID*(nDim+1)+j+1];
+    }}
+}
+double zetaAndForce(double *Ft_d,double* y_d,int n,int d,double* Phi,thrust::device_vector<double> & zetaVec){
+
+  int threads=1024;
+  int Blocks=64;
+  compute_repulsive_forces_kernel<<<Blocks,threads>>>(Ft_d,y_d,n,d,Phi,thrust::raw_pointer_cast(zetaVec.data()));
+  double z=thrust::reduce(zetaVec.begin(),zetaVec.end(),0.0,thrust::plus<double>);
+
+  return z-n;
+}
+template<typename dataval>
+dataval zetaAndForce2( dataval * const F,            // Forces
+                      const dataval * const Y,      // Coordinates
+                      const dataval * const Phi,    // Values
+                      const uint32_t * const iPerm,// Permutation
+                      const uint32_t nPts,         // #points
+                      const uint32_t nDim ) {      // #dimensions
+
+  dataval Z = 0;
+
+  // compute normalization term
+  for (uint32_t i=0; i<nPts; i++){
+    dataval Ysq = 0;
+    for (uint32_t j=0; j<nDim; j++){
+      Ysq += Y[i*nDim+j] * Y[i*nDim+j];
+      Z -= 2 * ( Y[i*nDim+j] * Phi[i*(nDim+1)+j+1] );
+    }
+    Z += ( 1 + 2*Ysq ) * Phi[i*(nDim+1)];
+  }
+
+  Z = Z-nPts;
+
+  // Compute repulsive forces
+  for (uint32_t i=0; i<nPts; i++){
+    for (uint32_t j=0; j<nDim; j++)
+      F[iPerm[i]*nDim + j] =
+        ( Y[i*nDim+j] * Phi[i*(nDim+1)] - Phi[i*(nDim+1)+j+1] ) / Z;
+  }
+
+  return Z;
+
+}
 int main(int argc, char **argv){
   int d=atoi(argv[1]);
   int N=1<<atoi(argv[2]);
@@ -302,11 +502,12 @@ int main(int argc, char **argv){
   }
   double* y_d;
   int n=N;
+  if(1==1){
   CUDA_CALL(cudaMallocManaged(&y_d,d*n*sizeof(double)));
   CUDA_CALL(cudaMemcpy(y_d,yc,n*d*sizeof(double), cudaMemcpyHostToDevice));
   uint64_t *Codes;
   CUDA_CALL(cudaMallocManaged(&Codes,n*sizeof(uint64_t)));
-  int nGrid=10;
+  int nGrid=atoi(argv[5]);
   double multQuant = nGrid - 1 - std::numeric_limits<double>::epsilon();
   int threads=1<<atoi(argv[3]);
   int blocks=1<<atoi(argv[4]);
@@ -356,7 +557,7 @@ int main(int argc, char **argv){
     thrust ::stable_sort_by_key(Codes_ptr, Codes_ptr + n, make_zip_iterator(make_tuple(yVec_ptr, yVec_ptr+n,iPerm.begin())));
 
   case 3:
-    thrust ::stable_sort_by_key(Codes_ptr, Codes_ptr + n, make_zip_iterator(make_tuple(yVec_ptr, yVec_ptr+n,yVec_ptr+n,iPerm.begin())));
+    thrust ::stable_sort_by_key(Codes_ptr, Codes_ptr + n, make_zip_iterator(make_tuple(yVec_ptr, yVec_ptr+n,yVec_ptr+2*n,iPerm.begin())));
 
 
 }
@@ -400,8 +601,88 @@ int main(int argc, char **argv){
     printf("\n" );
   }
 
-  uint32_t *ib;// Starting index of box (along last dimension)
-  uint32_t *cb;//Number of scattered points per box (along last dimension)
+  uint32_t *ibh;// Starting index of box (along last dimension)
+  uint32_t *cbh;//Number of scattered points per box (along last dimension)
+  ibh=(uint32_t *)calloc(nGrid,sizeof(uint32_t));
+  cbh=(uint32_t *)calloc(nGrid,sizeof(uint32_t));
+  uint32_t *ib;
+  uint32_t *cb;
+  CUDA_CALL(cudaMallocManaged(&ib,nGrid*sizeof(uint32_t)));
+  CUDA_CALL(cudaMemcpy(ib,ibh,nGrid*sizeof(uint32_t), cudaMemcpyHostToDevice));
+  CUDA_CALL(cudaMallocManaged(&cb,nGrid*sizeof(uint32_t)));
+  CUDA_CALL(cudaMemcpy(cb,cbh,nGrid*sizeof(uint32_t), cudaMemcpyHostToDevice));
+    if ( (d%2) == 1 ){
+
+      // ========== get starting index and size of each grid box
+      gridSizeAndIdx( ibh, cbh, C2, n, d, nGrid);
+      y = Y2;
+
+
+    } else {
+
+      // ========== get starting index and size of each grid box
+      gridSizeAndIdx( ibh, cbh, Codes2, n, d, nGrid);
+
+    }
+
+  gridSizeAndIdxKernel<<<blocks,threads>>>(ib,cb,Codes,n,d,nGrid,qLevel);
+  uint32_t* ib2=(uint32_t *)calloc(nGrid,sizeof(uint32_t));
+
+  CUDA_CALL(cudaMemcpy(ib2,ib,nGrid*sizeof(uint32_t), cudaMemcpyDeviceToHost));
+  for(int i=0;i<nGrid;i++){
+    if(ib2[i]!=ibh[i]){printf("Error ib=%d ibh=%d \n",ib2[i],ibh[i] );}else{printf("Succes ib=%d ibh=%d \n",ib2[i],ibh[i] );}
+  }
+  uint32_t* cb2=(uint32_t *)calloc(nGrid,sizeof(uint32_t));
+  CUDA_CALL(cudaMemcpy(cb2,cb,nGrid*sizeof(uint32_t), cudaMemcpyDeviceToHost));
+
+  for(int i=0;i<nGrid;i++){
+    if(cbh[i]!=cb2[i]){printf("Error cbh=%d cb=%d\n",cbh[i],cb2[i] );}else{printf("cudaSuccess cbh=%d cb=%d\n",cbh[i],cb2[i] );}
+  }
+  }
+
+  double *VScat    = (double*) malloc( n*(d+1) * sizeof( double ) );
+  double *VScat_d;
+  CUDA_CALL(cudaMallocManaged(&VScat_d,n*(d+1) * sizeof( double )));
+  ComputeCharges(VScat_d,y_d,n,d);
+  double *VScat2    = (double*) malloc( n*(d+1) * sizeof( double ) );
+
+  CUDA_CALL(cudaMemcpy(VScat2,VScat_d,n*(d+1) * sizeof( double ), cudaMemcpyDeviceToHost));
+
+  for( int i = 0; i < n; i++ ){
+
+    VScat[ i*(d+1) ] = 1.0;
+    for ( int j = 0; j < d; j++ )
+      VScat[ i*(d+1) + j+1 ] = y[ i*d + j ];
+
+  }
+
+  for(int i=0;i<n;i++){
+    for(int j=0;j<d+1;j++){
+      if(VScat[i*(d+1)+j] ==VScat2[i+j*n]){
+        //printf(" Succes VScat= %lf VScat_d=%lf\n",VScat[i*(d+1)+j],VScat2[i+j*n] );
+      }else{
+        printf(" Error VScat= %lf VScat_d=%lf\n",VScat[i*(d+1)+j],VScat2[i+j*n] );}
+  }}
+
+  for(int i=0;i<n;i++){
+    for(int j=0;j<d;j++)
+      if(y[i*(d)+j] ==yc[i+j*n]){
+        //   printf(" Succes y= %lf yc=%lf\n",y[i*(d)+j],yc[i+j*n] );
+    }else{printf(" Error y= %lf yc=%lf\n",y[i*(d)+j],yc[i+j*n] );}
+
+  }
+  double* Phi=generateRandomCoord(n,d+1);
+  thrust::device_vector<double> zetaVec(n);
+  double* Ft=malloc(d*n*sizeof(double));
+  double* Ft_d;
+  double* Phi_d;
+  CUDA_CALL(cudaMallocManaged(&Ft_d,n*d * sizeof( double )));
+  CUDA_CALL(cudaMallocManaged(&Phi_d,n*(d+1) * sizeof( double )));
+  CUDA_CALL(cudaMemcpy(Phi_d,Phi,n*(d+1) * sizeof( double ), cudaMemcpyHostToDevice));
+  z= zetaAndForce( Ft_d, y_d, n, d, Phi_d,zetaVec);
+  z2=zetaAndForce2(Ft,y,Phi,,)
+  template<typename dataval>
+  dataval zetaAndForce2(   F,  Y,  Phi, iPerm, n, d )
 
 
 
