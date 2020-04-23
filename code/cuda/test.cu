@@ -8,6 +8,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/sequence.h>
+#include <thrust/reduce.h>
 #define LIMIT_SEQ 512
 
 #define CUDA_CALL(x)                                                           \
@@ -444,7 +445,8 @@ __global__ void compute_repulsive_forces_kernel(volatile double *__restrict__ fr
       frep[TID+j*num_points] = Y[TID+j*num_points]*Phi[TID*(nDim+1)]-Phi[TID*(nDim+1)+j+1];
     }}
 }
-double zetaAndForce(double *Ft_d,double* y_d,int n,int d,double* Phi,thrust::device_vector<double> & zetaVec){
+
+double zetaAndForce(double *Ft_d,double* y_d,int n,int d,double* Phi,thrust::device_vector<uint32_t> & iPerm,thrust::device_vector<double> & zetaVec){
 
   int threads=1024;
   int Blocks=64;
@@ -489,6 +491,8 @@ int main(int argc, char **argv){
   int d=atoi(argv[1]);
   int N=1<<atoi(argv[2]);
   double * y=generateRandomCoord(N,d);
+  uint32_t  *  iPermpa = (uint32_t  * ) malloc(sizeof(uint32_t) * 1    * N);
+
   y[1]=100;
   y[2]=100;
   y[3]=100;
@@ -502,7 +506,7 @@ int main(int argc, char **argv){
   }
   double* y_d;
   int n=N;
-  if(1==1){
+
   CUDA_CALL(cudaMallocManaged(&y_d,d*n*sizeof(double)));
   CUDA_CALL(cudaMemcpy(y_d,yc,n*d*sizeof(double), cudaMemcpyHostToDevice));
   uint64_t *Codes;
@@ -577,8 +581,7 @@ int main(int argc, char **argv){
   }
   uint64_t  * const C2     = (uint64_t *  ) malloc(sizeof(uint64_t) * 1    * n);
   double   * const Y2     = (double   * ) malloc(sizeof(double)  * d* n);
-  uint32_t  * const iPerm2 = (uint32_t  * ) malloc(sizeof(uint32_t) * 1    * n);
-  uint32_t  * const iPermpa = (uint32_t  * ) malloc(sizeof(uint32_t) * 1    * n);
+  uint32_t  *  iPerm2 = (uint32_t  * ) malloc(sizeof(uint32_t) * 1    * n);
   for(int i=0;i<n;i++){
     iPermpa[i]=i;
   }
@@ -616,7 +619,7 @@ int main(int argc, char **argv){
       // ========== get starting index and size of each grid box
       gridSizeAndIdx( ibh, cbh, C2, n, d, nGrid);
       y = Y2;
-
+      iPermpa=iPerm2;
 
     } else {
 
@@ -624,6 +627,12 @@ int main(int argc, char **argv){
       gridSizeAndIdx( ibh, cbh, Codes2, n, d, nGrid);
 
     }
+
+    printf("------------Please god help me-------\n" );
+
+    for(int i=0;i<n;i++){
+      printf("%d   vs %d\n",iPermpa[i],perm[i] );
+  }
 
   gridSizeAndIdxKernel<<<blocks,threads>>>(ib,cb,Codes,n,d,nGrid,qLevel);
   uint32_t* ib2=(uint32_t *)calloc(nGrid,sizeof(uint32_t));
@@ -638,7 +647,20 @@ int main(int argc, char **argv){
   for(int i=0;i<nGrid;i++){
     if(cbh[i]!=cb2[i]){printf("Error cbh=%d cb=%d\n",cbh[i],cb2[i] );}else{printf("cudaSuccess cbh=%d cb=%d\n",cbh[i],cb2[i] );}
   }
-  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   double *VScat    = (double*) malloc( n*(d+1) * sizeof( double ) );
   double *VScat_d;
@@ -671,19 +693,18 @@ int main(int argc, char **argv){
     }else{printf(" Error y= %lf yc=%lf\n",y[i*(d)+j],yc[i+j*n] );}
 
   }
+
   double* Phi=generateRandomCoord(n,d+1);
   thrust::device_vector<double> zetaVec(n);
-  double* Ft=malloc(d*n*sizeof(double));
+  double* Ft=(double *)malloc(d*n*sizeof(double));
   double* Ft_d;
   double* Phi_d;
   CUDA_CALL(cudaMallocManaged(&Ft_d,n*d * sizeof( double )));
   CUDA_CALL(cudaMallocManaged(&Phi_d,n*(d+1) * sizeof( double )));
   CUDA_CALL(cudaMemcpy(Phi_d,Phi,n*(d+1) * sizeof( double ), cudaMemcpyHostToDevice));
-  z= zetaAndForce( Ft_d, y_d, n, d, Phi_d,zetaVec);
-  z2=zetaAndForce2(Ft,y,Phi,,)
-  template<typename dataval>
-  dataval zetaAndForce2(   F,  Y,  Phi, iPerm, n, d )
-
+  double z= zetaAndForce( Ft_d, y_d, n, d, Phi_d,iPerm,zetaVec);
+  double z2=zetaAndForce2(Ft,y,Phi,iPermpa,n,d);
+  printf("%lf vs lf \n",z,z2 );
 
 
 return 0;

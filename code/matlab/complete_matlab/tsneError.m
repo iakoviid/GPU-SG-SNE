@@ -1,14 +1,14 @@
 % Load data
 clear;
 load 'mnist_train.mat'
-n=2000;
+n=1000;
 max_iter=1000;
 ind=randperm(size(train_X, 1));
 train_X=train_X(ind(1:n),:);
 train_labels=train_labels(ind(1:n));
 
 % Set parameters
-no_dims= 4;
+no_dims= 3;
 initial_dims= 100;
 perplexity= 30;
 exag=12;

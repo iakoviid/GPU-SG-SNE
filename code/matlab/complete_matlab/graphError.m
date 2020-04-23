@@ -40,6 +40,6 @@ end
 xlabel('#Intervals');
 ylabel("log10(RSE)");
 title(n+"points in "+"ymax="+width+", ymin= "+width2 +" in "+s+"dimensions" );
-legend(labs);
+legend(labs);e
 end
 
