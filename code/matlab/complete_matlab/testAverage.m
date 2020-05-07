@@ -1,4 +1,4 @@
-function [errorRation,speedup] =  testAverage(Y,charges,N1,percent,k,squared,scale,number)
+function [error1,error2,speedup] =  testAverage(Y,charges,N1,percent,k,squared,scale,number)
 N2=floor(N1*percent);
 n=size(Y,1);
 nsums=size(charges,2);
@@ -36,6 +36,8 @@ end
 phistar=phistar/(number+1);
 time2=toc;
 %displaysouts(Y,f,phi,phistar,number,time1,time2,k,N2,width,scale)
-errorRation=norm(f-phi)/norm(f-phistar);
+error1=norm(f-phi)/norm(f);
+error2=norm(f-phistar)/norm(f);
+fprintf("error1=%f vs error2=%f\n",error1,error2);
 speedup=time1/time2;
 end

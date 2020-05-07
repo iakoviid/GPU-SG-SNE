@@ -23,7 +23,7 @@ h = h * box_width;
 int_lookup = zeros(n,1);
 
 for i=1:n
-    
+
     current_intx=floor((Y(i,1)-box_lower_bounds(1))/box_width)+1;
     if (current_intx > Nint)
         current_intx = Nint;
@@ -40,7 +40,7 @@ for (i = 1: n)
     box_idx = int_lookup(i);
     x_min = box_lower_bounds(box_idx);
     points_in_box(i) = (Y(i)-x_min)/box_width;
-    
+
 end
 
 
@@ -71,10 +71,9 @@ for i=1:n
             for nterms=1:nsums
                  fpol(i,nterms)= fpol(i,nterms)+Vx(i,interp_i+1)*b(idx+1,nterms);
             end
-        
+
     end
 end
 rep=fpol;
 
 end
-
