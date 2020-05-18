@@ -1,5 +1,35 @@
 
-_global__ void compute_repulsive_forces_kernel(
+#include "Frep.cuh"
+
+template <class dataPoint>
+__global__ void ArrayCopy(dataPoint* a,dataPoint* b,uint32_t n)
+{
+  uint32_t tidx = threadIdx.x + blockDim.x * blockIdx.x;
+  uint32_t stride = blockDim.x * gridDim.x;
+  for (; tidx < n; tidx += stride){
+    b[tidx]=a[tidx];
+ }
+}
+
+__global__ void ComputeChargesKernel(coord *__restrict__ VScat,
+                                     const coord *const y_d, const int n,
+                                     const int d, const int n_terms) {
+
+  for (register int TID = threadIdx.x + blockIdx.x * blockDim.x; TID < n;
+       TID += gridDim.x * blockDim.x) {
+    for (int j = 0; j < d; j++) {
+      VScat[TID + (j + 1) * n] = y_d[TID + (j)*n];
+      // if(threadIdx.x==0){printf("y_d[%d]=%lf\n",TID+(j)*n ,y_d[TID+(j)*n]);}
+    }
+    VScat[TID] = 1;
+  }
+}
+void ComputeCharges(coord *VScat, coord *y_d, int n, int d) {
+  int threads = 1024;
+  int Blocks = 64;
+  ComputeChargesKernel<<<Blocks, threads>>>(VScat, y_d, n, d, d + 1);
+}
+__global__ void compute_repulsive_forces_kernel(
     volatile coord *__restrict__ frep, const coord *const Y,
     const int num_points, const int nDim, const coord *const Phi,
     volatile coord *__restrict__ zetaVec, uint32_t *iPerm) {
@@ -23,8 +53,8 @@ _global__ void compute_repulsive_forces_kernel(
   }
 }
 coord zetaAndForce(coord *Ft_d, coord *y_d, int n, int d, coord *Phi,
-                    thrust::device_vector<uint32_t> &iPerm,
-                    thrust::device_vector<coord> &zetaVec) {
+                   thrust::device_vector<uint32_t> &iPerm,
+                   thrust::device_vector<coord> &zetaVec) {
 
   int threads = 1024;
   int Blocks = 64;
@@ -34,102 +64,56 @@ coord zetaAndForce(coord *Ft_d, coord *y_d, int n, int d, coord *Phi,
   coord z = thrust::reduce(zetaVec.begin(), zetaVec.end()) - n;
   return z;
 }
-coord computeFrepulsive_interp(coord *Frep, coord *y, int n, int d, double h,
-                               int np) {
 
-  // ~~~~~~~~~~ make temporary data copies
-  coord *yt = static_cast<coord *>(malloc(n * d * sizeof(coord)));
-  coord *yr = static_cast<coord *>(malloc(n * d * sizeof(coord)));
+coord computeFrepulsive_interp(coord *Frep, coord *y, int n, int d, coord h) {
 
-  // struct timeval start;
+  thrust::device_ptr<coord> yVec_ptr(y);
+  thrust::device_vector<coord> yVec_d(yVec_ptr, yVec_ptr + n * d);
+  unsigned int position;
+  coord *miny = (coord *)malloc(sizeof(coord) * d);
+  for (int j = 0; j < d; j++) {
 
-  // ~~~~~~~~~~ move data to (0,0,...)
-  coord miny[d];
-  for (int i = 0; i < d; i++) {
-    miny[i] = std::numeric_limits<coord>::infinity();
+    thrust::device_vector<coord>::iterator iter = thrust::min_element(
+        yVec_d.begin() + j * n, yVec_d.begin() + n * (j + 1));
+    position = iter - (yVec_d.begin());
+    miny[j] = yVec_d[position];
+    addScalar<<<32, 256>>>(&y[j * n], -miny[j], n);
   }
 
-  //--G cauch is translationaly invariant
-  for (int i = 0; i < n; i++)
-    for (int j = 0; j < d; j++)
-      miny[j] = miny[j] > y[i * d + j] ? y[i * d + j] : miny[j];
-
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < d; j++) {
-      y[i * d + j] -= miny[j];
-    }
-  }
-
-  // ~~~~~~~~~~ find maximum value (across all dimensions) and get grid size
-  //--G I have something similar max(maxy/h,14) vs max((maxy-miny)*2,20)
-  coord maxy = 0;
-  for (int i = 0; i < n * d; i++)
-    maxy = maxy < y[i] ? y[i] : maxy;
-
+  thrust::device_vector<coord>::iterator iter =
+      thrust::max_element(yVec_d.begin(), yVec_d.end());
+  position = iter - yVec_d.begin();
+  coord maxy = yVec_d[position];
   int nGrid = std::max((int)std::ceil(maxy / h), 14);
   nGrid = getBestGridSize(nGrid);
 
-  //#ifdef VERBOSE
-  std::cout << "Grid: " << nGrid << " h: " << h << "maxy: " << maxy
-            << std::endl;
-  //#endif
+  coord *VScat;
+  coord *PhiScat;
+  CUDA_CALL(cudaMallocManaged(&VScat, (d+1) * n * sizeof(coord)));
+  CUDA_CALL(cudaMallocManaged(&PhiScat, (d+1) * n * sizeof(coord)));
+  uint32_t *ib;
+  uint32_t *cb;
+  CUDA_CALL(cudaMallocManaged(&ib, nGrid* sizeof(uint32_t)));
+  CUDA_CALL(cudaMallocManaged(&cb, nGrid* sizeof(uint32_t)));
+  thrust::device_vector<uint32_t> iPerm(n);
+  thrust::sequence(iPerm.begin(), iPerm.end());
+  ComputeCharges(VScat, y, n, d);
 
-  // ~~~~~~~~~~ setup inputs to nuConv
+  /*copy data*/
+  coord* yr,*yt;
+  CUDA_CALL(cudaMallocManaged(&yr, (d) * n * sizeof(coord)));
+  CUDA_CALL(cudaMallocManaged(&yt, (d) * n * sizeof(coord)));
+  ArrayCopy<<<32,256>>>(y,yr,n*d);
+  ArrayCopy<<<32,256>>>(y,yt,n*d);
+  relocateCoarseGrid(yt,iPerm,ib,cb,n,nGrid,d);
+  thrust::device_vector<coord> zetaVec(n);
 
-  std::copy(y, y + (n * d), yt);
-
-  coord *VScat = (coord *)malloc(n * (d + 1) * sizeof(coord));
-  coord *PhiScat = (coord *)calloc(n * (d + 1), sizeof(coord));
-  uint32_t *iPerm = (uint32_t *)malloc(n * sizeof(uint32_t));
-  uint32_t *ib = (uint32_t *)calloc(nGrid, sizeof(uint32_t));
-  uint32_t *cb = (uint32_t *)calloc(nGrid, sizeof(uint32_t));
-
-  for (int i = 0; i < n; i++) {
-    iPerm[i] = i;
-  }
-
-  // start = tsne_start_timer();
-  // relocateCoarseGrid(&yt, &iPerm, ib, cb, n, nGrid, d, np);
-  /*
-  if (timeInfo != nullptr)
-    timeInfo[0] = tsne_stop_timer("Gridding", start);
-  else
-    tsne_stop_timer("Gridding", start);
-    */
-  // ----- setup VScat (value on scattered points)
-
-  for (int i = 0; i < n; i++) {
-
-    VScat[i * (d + 1)] = 1.0;
-    for (int j = 0; j < d; j++)
-      VScat[i * (d + 1) + j + 1] = yt[i * d + j];
-  }
-
-  std::copy(yt, yt + (n * d), yr);
-
-  // ~~~~~~~~~~ run nuConv
-  /*
-  if (timeInfo != nullptr)
-    nuconv(PhiScat, yt, VScat, ib, cb, n, d, d + 1, np, nGrid, &timeInfo[1]);
-  else
-    nuconv(PhiScat, yt, VScat, ib, cb, n, d, d + 1, np, nGrid);
-  */
-  // ~~~~~~~~~~ compute Z and repulsive forces
-
-  // start = tsne_start_timer();
-  coord zeta = zetaAndForce(Frep, yr, PhiScat, iPerm, n, d);
-  /*
-  if (timeInfo != NULL)
-    timeInfo[4] = tsne_stop_timer("F&Z", start);
-  else
-    tsne_stop_timer("F&Z", start);
-  */
-  free(yt);
-  free(yr);
-  free(VScat);
-  free(PhiScat);
-  free(iPerm);
-  free(ib);
-  free(cb);
+  coord zeta = zetaAndForce(Frep, yr, n, d, PhiScat, iPerm,zetaVec);
+  CUDA_CALL(cudaFree(yr));
+  CUDA_CALL(cudaFree(yt));
+  CUDA_CALL(cudaFree(VScat));
+  CUDA_CALL(cudaFree(PhiScat));
+  CUDA_CALL(cudaFree(ib));
+  CUDA_CALL(cudaFree(cb));
   return zeta;
 }

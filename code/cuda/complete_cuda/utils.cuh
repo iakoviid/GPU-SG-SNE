@@ -17,9 +17,8 @@ __device__ __host__ static inline double sign(double x) {
   return (x == .0 ? .0 : (x < .0 ? -1.0 : 1.0));
 }
 
-template <class dataPoint>
-__global__ void addScalar(dataPoint *a, dataPoint scalar, uint32_t length);
 
-template <typename T>
-__global__ void initKernel(T *devPtr, const T val, const size_t nwords);
+int getBestGridSize(int nGrid);
+
+
 #endif

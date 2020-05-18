@@ -76,7 +76,7 @@ else
 zeta = computeFrepulsive_interp(Frep, y, n, d, params.h, params.np);
   */
   printf("HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH=%lf\n",params.h );
-  zeta = computeFrepulsive_interp(Frep, y, n, d, params.h, params.np);
+  zeta = computeFrepulsive_interpCPU(Frep, y, n, d, params.h, params.np);
 
   *timeFrep += tsne_stop_timer("QQ", start);
   // double zeta = computeFrepulsive_exact(Frep, y, n, d);

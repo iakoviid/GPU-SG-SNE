@@ -1,7 +1,9 @@
 #include "common.hpp"
 #include <cmath>
 #include <limits>
-#define N_GRID_SIZE 137
+#include "utils.cuh"
+#include "relocateData.hpp"
+#include "nuconv.hpp"
 
 coord computeFrepulsive_exact(coord *frep, coord *pointsX, int N, int d) {
 
@@ -47,6 +49,7 @@ coord computeFrepulsive_exact(coord *frep, coord *pointsX, int N, int d) {
 
   return zeta;
 }
+
 template <typename dataval>
 dataval zetaAndForce(dataval *const F,            // Forces
                      const dataval *const Y,      // Coordinates
@@ -80,30 +83,8 @@ dataval zetaAndForce(dataval *const F,            // Forces
   return Z;
 }
 
-int getBestGridSize(int nGrid) {
 
-  // list of FFT sizes that work "fast" with FFTW
-  int listGridSize[N_GRID_SIZE] = {
-      8,   9,   10,  11,  12,  13,  14,  15,  16,  20,  25,  26,  28,  32,
-      33,  35,  36,  39,  40,  42,  44,  45,  48,  49,  50,  52,  54,  55,
-      56,  60,  63,  64,  65,  66,  70,  72,  75,  77,  78,  80,  84,  88,
-      90,  91,  96,  98,  99,  100, 104, 105, 108, 110, 112, 117, 120, 125,
-      126, 130, 132, 135, 140, 144, 147, 150, 154, 156, 160, 165, 168, 175,
-      176, 180, 182, 189, 192, 195, 196, 198, 200, 208, 210, 216, 220, 224,
-      225, 231, 234, 240, 245, 250, 252, 260, 264, 270, 273, 275, 280, 288,
-      294, 297, 300, 308, 312, 315, 320, 325, 330, 336, 343, 350, 351, 352,
-      360, 364, 375, 378, 385, 390, 392, 396, 400, 416, 420, 432, 440, 441,
-      448, 450, 455, 462, 468, 480, 490, 495, 500, 504, 512};
-
-  // select closest (larger) size for given grid size
-  for (int i = 0; i < N_GRID_SIZE; i++)
-    if ((nGrid + 2) <= listGridSize[i])
-      return listGridSize[i] - 2;
-
-  return listGridSize[N_GRID_SIZE - 1] - 2;
-}
-
-coord computeFrepulsive_interp(coord *Frep, coord *y, int n, int d, double h,
+coord computeFrepulsive_interpCPU(coord *Frep, coord *y, int n, int d, double h,
                                int np) {
 
   // ~~~~~~~~~~ make temporary data copies
@@ -158,7 +139,10 @@ coord computeFrepulsive_interp(coord *Frep, coord *y, int n, int d, double h,
   }
 
   // start = tsne_start_timer();
-  // relocateCoarseGrid(&yt, &iPerm, ib, cb, n, nGrid, d, np);
+  //relocateCoarseGridCPU(&yt, &iPerm, ib, cb, n, nGrid, d, np);
+  relocateCoarseGridCPU(&yt,&iPerm,ib,cb,n,nGrid,d,np);
+
+
   /*
   if (timeInfo != nullptr)
     timeInfo[0] = tsne_stop_timer("Gridding", start);
@@ -175,6 +159,7 @@ coord computeFrepulsive_interp(coord *Frep, coord *y, int n, int d, double h,
   }
 
   std::copy(yt, yt + (n * d), yr);
+  nuconvCPU(PhiScat, yt, VScat, ib, cb, n, d, d + 1, np, nGrid);
 
   // ~~~~~~~~~~ run nuConv
   /*

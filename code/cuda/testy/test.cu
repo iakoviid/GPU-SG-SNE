@@ -585,7 +585,7 @@ void nuconv(double *PhiScat, double *y, double *VScat, uint32_t *ib,
            "=\n");
     g2s1d(PhiScat, PhiGrid, y, nGridDim + 2, n, d, m);
     printf("======================================================\n");
-    g2s1dCuda<<<1, 1>>>(Phi_d, PhiGrid_d, y_d, nGridDim + 2, n, d, m);
+    g2s1dCuda<<<32, 256>>>(Phi_d, PhiGrid_d, y_d, nGridDim + 2, n, d, m);
     double *phitest = (double *)malloc(m * n * sizeof(double));
     CUDA_CALL(cudaMemcpy(phitest, Phi_d, n * (d + 1) * sizeof(double),
                          cudaMemcpyDeviceToHost));

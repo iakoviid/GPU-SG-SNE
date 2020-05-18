@@ -3,22 +3,6 @@
 #include <thrust/device_vector.h>
 #include <thrust/reduce.h>
 
-template <typename T>
- __global__ void initKernel(T *devPtr, const T val, const size_t nwords) {
-  int tidx = threadIdx.x + blockDim.x * blockIdx.x;
-  int stride = blockDim.x * gridDim.x;
-
-  for (; tidx < nwords; tidx += stride)
-    devPtr[tidx] = val;
-}
-template <class dataPoint>
-  __global__ void addScalar(dataPoint *a, dataPoint scalar, uint32_t length) {
-  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < length;
-       i += gridDim.x * blockDim.x) {
-    a[i] += scalar;
-  }
-}
-
 
 __global__ void compute_dy(coord *dy, coord *Fattr, coord *Frep, int n, int d,
                            coord alpha) {
@@ -76,9 +60,11 @@ double compute_gradient(dataPoint *dy, double *timeFrep, double *timeFattr,
   // start = tsne_start_timer();
   // csb_pq( NULL, NULL, csb, y, Fattr, n, d, 0, 0, 0 );
   double zeta=0;
+  zeta = computeFrepulsive_interp(Frep, y, n, d, params.h);
+
   /*
 if (timeInfo != nullptr)
-zeta = computeFrepulsive_interp(Frep, y, n, d, params.h, params.np,
+  zeta = computeFrepulsive_interp(Frep, y, n, d, params.h, params.np,
                                        &timeInfo[1]);
 else
 zeta = computeFrepulsive_interp(Frep, y, n, d, params.h, params.np);
