@@ -3,6 +3,7 @@
 #include <iostream>
 #include <limits>
 #include <cmath>
+#define GRID_SIZE_THRESHOLD 20  // Differenet parallelism strategy for small grids
 
 #include "timers.hpp"
 #include "common.hpp"

@@ -11,6 +11,13 @@ __global__ void ArrayCopy(dataPoint* a,dataPoint* b,uint32_t n)
  }
 }
 
+template <class dataPoint>
+  __global__ void ArrayScale(dataPoint *a, dataPoint scalar, uint32_t length) {
+  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < length;
+       i += gridDim.x * blockDim.x) {
+    a[i] *= scalar;
+  }
+}
 __global__ void ComputeChargesKernel(coord *__restrict__ VScat,
                                      const coord *const y_d, const int n,
                                      const int d, const int n_terms) {
@@ -29,44 +36,49 @@ void ComputeCharges(coord *VScat, coord *y_d, int n, int d) {
   int Blocks = 64;
   ComputeChargesKernel<<<Blocks, threads>>>(VScat, y_d, n, d, d + 1);
 }
+
 __global__ void compute_repulsive_forces_kernel(
     volatile coord *__restrict__ frep, const coord *const Y,
     const int num_points, const int nDim, const coord *const Phi,
     volatile coord *__restrict__ zetaVec, uint32_t *iPerm) {
-  register coord Ysq = 0;
-  register coord z = 0;
-
-  for (register int TID = threadIdx.x + blockIdx.x * blockDim.x;
-       TID < num_points; TID += gridDim.x * blockDim.x) {
-
+   register coord Ysq = 0;
+   register coord z = 0;
+  for (register int TID = threadIdx.x + blockIdx.x * blockDim.x;TID < num_points; TID += gridDim.x * blockDim.x) {
+    Ysq=0;
+    z=0;
     for (uint32_t j = 0; j < nDim; j++) {
       Ysq += Y[TID + j * num_points] * Y[TID + j * num_points];
-      z -= 2 * Y[TID + j * num_points] * Phi[TID * (nDim + 1) + j + 1];
+      z -= 2 * Y[TID + j * num_points] * Phi[TID + (num_points) *(j + 1)];
+      frep[iPerm[TID] + j * num_points]=  Y[TID + j * num_points]*Phi[TID]-Phi[TID+(j+1)*num_points];
     }
-    z += (1 + 2 * Ysq) * Phi[TID * (nDim + 1)];
+
+    z += (1 + 2 * Ysq) * Phi[TID];
     zetaVec[TID] = z;
-    for (uint32_t j = 0; j < nDim; j++) {
-      frep[iPerm[TID] + j * num_points] =
-          Y[TID + j * num_points] * Phi[TID * (nDim + 1)] -
-          Phi[TID * (nDim + 1) + j + 1];
-    }
   }
 }
+
+
 coord zetaAndForce(coord *Ft_d, coord *y_d, int n, int d, coord *Phi,
-                   thrust::device_vector<uint32_t> &iPerm,
+                   uint32_t *iPerm,
                    thrust::device_vector<coord> &zetaVec) {
+// can posibly reduce amongs the threads and then divide
 
   int threads = 1024;
   int Blocks = 64;
-  compute_repulsive_forces_kernel<<<Blocks, threads>>>(
-      Ft_d, y_d, n, d, Phi, thrust::raw_pointer_cast(zetaVec.data()),
-      thrust::raw_pointer_cast(iPerm.data()));
+  compute_repulsive_forces_kernel<<<Blocks, threads>>>(Ft_d, y_d, n, d, Phi, thrust::raw_pointer_cast(zetaVec.data()),iPerm);
   coord z = thrust::reduce(zetaVec.begin(), zetaVec.end()) - n;
+  ArrayScale<<<Blocks, threads>>>(Ft_d,1/z,n*d);
   return z;
 }
 
 coord computeFrepulsive_interp(coord *Frep, coord *y, int n, int d, coord h) {
 
+  // ~~~~~~~~~~ make temporary data copies
+  coord* yr,*yt;
+  CUDA_CALL(cudaMallocManaged(&yr, (d) * n * sizeof(coord)));
+  CUDA_CALL(cudaMallocManaged(&yt, (d) * n * sizeof(coord)));
+
+  // ~~~~~~~~~~ move data to (0,0,...)
   thrust::device_ptr<coord> yVec_ptr(y);
   thrust::device_vector<coord> yVec_d(yVec_ptr, yVec_ptr + n * d);
   unsigned int position;
@@ -80,6 +92,9 @@ coord computeFrepulsive_interp(coord *Frep, coord *y, int n, int d, coord h) {
     addScalar<<<32, 256>>>(&y[j * n], -miny[j], n);
   }
 
+  // ~~~~~~~~~~ find maximum value (across all dimensions) and get grid size
+  //--G I have something similar max(maxy/h,14) vs max((maxy-miny)*2,20)
+
   thrust::device_vector<coord>::iterator iter =
       thrust::max_element(yVec_d.begin(), yVec_d.end());
   position = iter - yVec_d.begin();
@@ -87,28 +102,32 @@ coord computeFrepulsive_interp(coord *Frep, coord *y, int n, int d, coord h) {
   int nGrid = std::max((int)std::ceil(maxy / h), 14);
   nGrid = getBestGridSize(nGrid);
 
-  coord *VScat;
-  coord *PhiScat;
-  CUDA_CALL(cudaMallocManaged(&VScat, (d+1) * n * sizeof(coord)));
-  CUDA_CALL(cudaMallocManaged(&PhiScat, (d+1) * n * sizeof(coord)));
+  ArrayCopy<<<32,256>>>(y,yt,n*d);
+  //printf("maxy=%lf\n",maxy );
+
   uint32_t *ib;
   uint32_t *cb;
   CUDA_CALL(cudaMallocManaged(&ib, nGrid* sizeof(uint32_t)));
   CUDA_CALL(cudaMallocManaged(&cb, nGrid* sizeof(uint32_t)));
   thrust::device_vector<uint32_t> iPerm(n);
   thrust::sequence(iPerm.begin(), iPerm.end());
-  ComputeCharges(VScat, y, n, d);
 
-  /*copy data*/
-  coord* yr,*yt;
-  CUDA_CALL(cudaMallocManaged(&yr, (d) * n * sizeof(coord)));
-  CUDA_CALL(cudaMallocManaged(&yt, (d) * n * sizeof(coord)));
-  ArrayCopy<<<32,256>>>(y,yr,n*d);
-  ArrayCopy<<<32,256>>>(y,yt,n*d);
+
   relocateCoarseGrid(yt,iPerm,ib,cb,n,nGrid,d);
-  thrust::device_vector<coord> zetaVec(n);
 
-  coord zeta = zetaAndForce(Frep, yr, n, d, PhiScat, iPerm,zetaVec);
+
+  coord *VScat;
+  coord *PhiScat;
+  CUDA_CALL(cudaMallocManaged(&VScat, (d+1) * n * sizeof(coord)));
+  CUDA_CALL(cudaMallocManaged(&PhiScat, (d+1) * n * sizeof(coord)));
+  ComputeCharges(VScat, yt, n, d);
+  ArrayCopy<<<32,256>>>(yt,yr,n*d);
+  nuconv(PhiScat,yt, VScat, ib, cb, n, d, d+1, nGrid);
+
+  thrust::device_vector<coord> zetaVec(n);
+  coord zeta = zetaAndForce(Frep, yr, n, d, PhiScat, thrust::raw_pointer_cast(iPerm.data()),zetaVec);
+
+
   CUDA_CALL(cudaFree(yr));
   CUDA_CALL(cudaFree(yt));
   CUDA_CALL(cudaFree(VScat));

@@ -40,6 +40,7 @@ void update_positionsCPU(dataPoint *const dY, dataPoint *const uY, int const N,
 
 
     meany[i] /= N;
+    printf("host mean %lf\n",meany[i] );
   }
 
   // zero-mean
@@ -58,16 +59,16 @@ double compute_gradientCPU(dataPoint *dy, double *timeFrep, double *timeFattr,
   int n = params.n;
 
   // ----- timing
-  struct timeval start;
+  //struct timeval start;
 
   // ----- Allocate memory
   dataPoint *Fattr = (dataPoint *)calloc(n * d, sizeof(dataPoint));
   dataPoint *Frep = (dataPoint *)calloc(n * d, sizeof(dataPoint));
 
   // ------ Compute PQ (fattr)
-  start = tsne_start_timer();
+  //start = tsne_start_timer();
   // csb_pq( NULL, NULL, csb, y, Fattr, n, d, 0, 0, 0 );
-  double zeta;
+  double zeta=0;
   /*
 if (timeInfo != nullptr)
 zeta = computeFrepulsive_interp(Frep, y, n, d, params.h, params.np,
@@ -75,10 +76,9 @@ zeta = computeFrepulsive_interp(Frep, y, n, d, params.h, params.np,
 else
 zeta = computeFrepulsive_interp(Frep, y, n, d, params.h, params.np);
   */
-  printf("HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH=%lf\n",params.h );
-  zeta = computeFrepulsive_interpCPU(Frep, y, n, d, params.h, params.np);
+  zeta = computeFrepulsive_interpCPU(Frep, y, n, d, params.h, 1);
 
-  *timeFrep += tsne_stop_timer("QQ", start);
+  //*timeFrep += tsne_stop_timer("QQ", start);
   // double zeta = computeFrepulsive_exact(Frep, y, n, d);
 
   // ----- Compute gradient (dY)
@@ -89,7 +89,7 @@ zeta = computeFrepulsive_interp(Frep, y, n, d, params.h, params.np);
   free(Frep);
   return zeta;
 }
-void kl_minimizationCPU(coord *y, tsneparams params, double **timeInfo = NULL) {
+void kl_minimizationCPU(coord *y, tsneparams params) {
 
   // ----- t-SNE hard coded parameters - Same as in vdM's code
   int stop_lying_iter = params.earlyIter, mom_switch_iter = 250;
@@ -100,7 +100,7 @@ void kl_minimizationCPU(coord *y, tsneparams params, double **timeInfo = NULL) {
   double timeFattr = 0.0;
   double timeFrep = 0.0;
 
-  struct timeval start;
+  //struct timeval start;
 
   int n = params.n;
   int d = params.d;
@@ -120,14 +120,21 @@ void kl_minimizationCPU(coord *y, tsneparams params, double **timeInfo = NULL) {
   }
 
   // ----- Start t-SNE iterations
-  start = tsne_start_timer();
-  max_iter = 1;
+  //start = tsne_start_timer();
+  printf("HOST~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
   for (int iter = 0; iter < max_iter; iter++) {
-
+      if(iter%10==0){printf("Host Iteration=%d\n",iter );}
     // ----- Gradient calculation
-    if (timeInfo == NULL)
+    //if (timeInfo == NULL)
+
       zeta = compute_gradientCPU(dy, &timeFrep, &timeFattr, params, y);
 
+      printf("Host zeta=%lf\n",zeta );
+      for(int i=0;i<n;i++){
+        for(int j=0;j<d;j++){
+          //printf("dy=%lf\n",dy[i*d+j] );
+        }
+      }
     // ----- Position update
     update_positionsCPU(dy, uy, n, d, y, gains, momentum, eta);
 
@@ -141,7 +148,7 @@ void kl_minimizationCPU(coord *y, tsneparams params, double **timeInfo = NULL) {
       momentum = final_momentum;
     }
 
-    // Print out progress
+    /*// Print out progress
     if (iter % iterPrint == 0 || iter == max_iter - 1) {
       // matval C = tsne_cost( csb, y, n, d, params.alpha, zeta );
       if (iter == 0) {
@@ -161,15 +168,17 @@ void kl_minimizationCPU(coord *y, tsneparams params, double **timeInfo = NULL) {
         start = tsne_start_timer();
       }
     }
-  }
+    */
 
+  }
+/*
   // ----- Print statistics (time spent at PQ and QQ)
   std::cout << " --- Time spent in each module --- \n" << std::endl;
   std::cout << " Attractive forces: " << timeFattr << " sec ["
             << timeFattr / (timeFattr + timeFrep) * 100
             << "%] |  Repulsive forces: " << timeFrep << " sec ["
             << timeFrep / (timeFattr + timeFrep) * 100 << "%]" << std::endl;
-
+*/
   free(dy);
   free(uy);
   free(gains);

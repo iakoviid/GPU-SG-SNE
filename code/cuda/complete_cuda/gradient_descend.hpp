@@ -4,8 +4,10 @@
 #include "tsne.cuh"
 #include "timers.hpp"
 #include "utils.cuh"
-int getBestGridSize(int nGrid);
-coord computeFrepulsive_interpCPU(coord *Frep, coord *y, int n, int d, double h,
-                               int np);
+#include "Frep.hpp"
+
+template <class dataPoint>
+double compute_gradientCPU(dataPoint *dy, double *timeFrep, double *timeFattr,tsneparams params, dataPoint *y);
+void kl_minimizationCPU(coord *y, tsneparams params);
 
 #endif

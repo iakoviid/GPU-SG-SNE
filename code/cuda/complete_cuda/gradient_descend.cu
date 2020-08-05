@@ -1,7 +1,5 @@
 #include "gradient_descend.cuh"
 
-#include <thrust/device_vector.h>
-#include <thrust/reduce.h>
 
 
 __global__ void compute_dy(coord *dy, coord *Fattr, coord *Frep, int n, int d,
@@ -17,7 +15,6 @@ __global__ void gradient_update(coord *dY, coord *uY, int N, int no_dims,
   for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < N * no_dims;
        i += gridDim.x * blockDim.x) {
     gains[i] = (sign(dY[i]) != sign(uY[i])) ? (gains[i] + .2) : (gains[i] * .8);
-
     if (gains[i] < .01)
       gains[i] = .01;
     uY[i] = momentum * uY[i] - eta * gains[i] * dY[i];
@@ -28,7 +25,7 @@ __global__ void gradient_update(coord *dY, coord *uY, int N, int no_dims,
 void update_positions(coord *dY, coord *uY, int n, int d, coord *Y,
                       coord *gains, coord momentum, coord eta) {
 
-  gradient_update<<<1, 1>>>(dY, uY, n, d, Y, gains, momentum, eta);
+  gradient_update<<<32, 256>>>(dY, uY, n, d, Y, gains, momentum, eta);
   coord *meany = (coord *)malloc(d * sizeof(coord));
 
   thrust::device_ptr<double> yVec_ptr = thrust::device_pointer_cast(Y);
@@ -48,14 +45,14 @@ double compute_gradient(dataPoint *dy, double *timeFrep, double *timeFattr,
   int n = params.n;
 
   // ----- timing
-  struct timeval start;
+  //struct timeval start;
 
   // ----- Allocate memory
 
   coord* Fattr;
   coord* Frep;
-  cudaMallocManaged(&Fattr,n*d*sizeof(coord));
-  cudaMallocManaged(&Frep,n*d*sizeof(coord));
+  CUDA_CALL(cudaMallocManaged(&Fattr,n*d*sizeof(coord)));
+  CUDA_CALL(cudaMallocManaged(&Frep,n*d*sizeof(coord)));
   // ------ Compute PQ (fattr)
   // start = tsne_start_timer();
   // csb_pq( NULL, NULL, csb, y, Fattr, n, d, 0, 0, 0 );
@@ -107,16 +104,30 @@ void kl_minimization(coord *y, tsneparams params) {
   /*-------Initialize-----*/
   initKernel<<<64, 1024>>>(uy, 0.0, n * d);
   initKernel<<<64, 1024>>>(gains, 1.0, n * d);
-
+/*
   // ----- Print precision
   if (sizeof(y[0]) == 4)
     std::cout << "Working with single precision" << std::endl;
   else if (sizeof(y[0]) == 8)
     std::cout << "Working with double precision" << std::endl;
-  // ----- Start t-SNE iterations
-  max_iter = 1;
+  */// ----- Start t-SNE iterations
+  printf("CUDA~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
   for (int iter = 0; iter < max_iter; iter++) {
+
+    if(iter%10==0){printf("Cuda Iteration=%d\n",iter );}
+
     zeta = compute_gradient(dy, &timeFrep, &timeFattr, params, y);
+
+    coord* y_h=(coord *) malloc(n*d*sizeof(coord));
+    cudaMemcpy(y_h, dy, d * n * sizeof(coord), cudaMemcpyDeviceToHost);
+
+    printf("Cuda zeta=%lf\n",zeta );
+    /*
+    for(int i=0;i<n;i++){
+      for(int j=0;j<d;j++){
+        //printf("dy=%lf\n",y_h[i+j*n] );
+      }
+    }*/
     update_positions(dy, uy, n, d, y, gains, momentum, eta);
 
     // Stop lying about the P-values after a while, and switch momentum
@@ -129,14 +140,14 @@ void kl_minimization(coord *y, tsneparams params) {
       momentum = final_momentum;
     }
   }
-
+/*
   // ----- Print statistics (time spent at PQ and QQ)
   std::cout << " --- Time spent in each module --- \n" << std::endl;
   std::cout << " Attractive forces: " << timeFattr << " sec ["
             << timeFattr / (timeFattr + timeFrep) * 100
             << "%] |  Repulsive forces: " << timeFrep << " sec ["
             << timeFrep / (timeFattr + timeFrep) * 100 << "%]" << std::endl;
-
+ */
   CUDA_CALL(cudaFree(dy));
   CUDA_CALL(cudaFree(uy));
   CUDA_CALL(cudaFree(gains));

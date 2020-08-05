@@ -75,12 +75,13 @@ void conv1dnopad(coord *const PhiGrid, const coord *const VGrid,
   // ============================== EVEN FREQUENCIES
 
   // ~~~~~~~~~~~~~~~~~~~~ SETUP KERNEL
-
   for (uint32_t i=0; i<n1; i++) {
     std::complex<coord> tmp( kernel1d( hsq, i ), 0 );
+
              Kc[i]    += tmp;
     if (i>0) Kc[n1-i] += tmp;
   }
+
 
   // ~~~~~~~~~~~~~~~~~~~~ SETUP RHS
 
@@ -90,6 +91,7 @@ void conv1dnopad(coord *const PhiGrid, const coord *const VGrid,
         VGrid[ SUB2IND2D(i, iVec, n1) ];
     }
   }
+
 
   fftw_execute(planc_kernel);
   // ---------- execute kernel plan
@@ -117,7 +119,6 @@ void conv1dnopad(coord *const PhiGrid, const coord *const VGrid,
         Xc[ SUB2IND2D(i, iVec, n1) ].real();
     }
   }
-  return;
   // ============================== ODD FREQUENCIES
   for(int i=0;i<n1;i++){
     Kc[i]=0;
@@ -132,10 +133,10 @@ void conv1dnopad(coord *const PhiGrid, const coord *const VGrid,
              Kc[i]    += tmp;
     if (i>0) Kc[n1-i] -= tmp;
   }
-
   for (uint32_t i=0; i<n1; i++) {
     Kc[i] *= wc[i];
   }
+
 
   // ~~~~~~~~~~~~~~~~~~~~ SETUP RHS
 
@@ -146,12 +147,17 @@ void conv1dnopad(coord *const PhiGrid, const coord *const VGrid,
     }
   }
 
+
+
   // ---------- execute kernel plan
   fftw_execute(planc_kernel);
 
   // ---------- execute RHS plan
   fftw_execute(planc_rhs);
-
+  //printf("Host------------------------------\n" );
+  // for(int i=0;i<n1;i++){
+  //printf("KC=%lf+ %lf i\n",Kc[i].real(),Kc[i].imag() );
+//}
   // ~~~~~~~~~~~~~~~~~~~~ HADAMARD PRODUCT
   for (uint32_t jVec=0; jVec<nVec; jVec++) {
     for (uint32_t i=0; i<n1; i++){
@@ -175,8 +181,7 @@ void conv1dnopad(coord *const PhiGrid, const coord *const VGrid,
 
   for (uint32_t iVec=0; iVec<nVec; iVec++){
     for (uint32_t i=0; i<n1; i++){
-      PhiGrid[ SUB2IND2D(i, iVec, n1) ] +=
-        Xc[ SUB2IND2D(i, iVec, n1) ].real();
+      PhiGrid[ SUB2IND2D(i, iVec, n1) ] +=Xc[ SUB2IND2D(i, iVec, n1) ].real();
     }
   }
   for(int i=0;i<n1*nVec;i++){
@@ -196,7 +201,7 @@ void conv1dnopad(coord *const PhiGrid, const coord *const VGrid,
   fftw_free( w );
 }
 
-/*
+
 void conv2dnopad( double * const PhiGrid,
                   const double * const VGrid,
                   const double h,
@@ -238,14 +243,15 @@ void conv2dnopad( double * const PhiGrid,
   // get twiddle factors
   for (uint32_t i=0; i<nGridDims[0]; i++)
     wc[i] = std::polar(1.0, -2*pi*i/(2*nGridDims[0]) );
-
-  Kc[0:(n1*n2)] = 0.0;
-  Xc[0:(n1*n2*nVec)] = 0.0;
+  for(int i=0;i<n1*n2;i++){
+    Kc[i]=0;
+  }
+  for(int i=0;i<n1*n2*nVec;i++){
+    Xc[i]=0;
+  }
 
   // ~~~~~~~~~~~~~~~~~~~~ SETUP PARALLELISM
 
-  fftw_init_threads();
-  fftw_plan_with_nthreads(nProc);
 
   // ~~~~~~~~~~~~~~~~~~~~ SETUP FFTW PLANS
 
@@ -302,6 +308,14 @@ void conv2dnopad( double * const PhiGrid,
       }
     }
   }
+  printf("~~~~~~~~~~~~~HOST~~~~~~~~~~~~" );
+  for(int iVec=0;iVec<nVec;iVec++){
+    for(int i=0;i<n1;i++){
+      for(int j=0;j<n2;j++){
+        printf("PhiGrid=%lf + %lf i\n",Xc[SUB2IND3D(i, j, iVec ,n1, n2)].real(),Xc[SUB2IND3D(i, j, iVec ,n1, n2)].imag() );
+      }
+    }
+  }
 
   // ---------- execute plan
   fftw_execute(planc_inverse);
@@ -318,9 +332,13 @@ void conv2dnopad( double * const PhiGrid,
   }
 
   // ============================== ODD-EVEN
+  for(int i=0;i<n1*n2;i++){
+    Kc[i]=0;
+  }
+  for(int i=0;i<n1*n2*nVec;i++){
+    Xc[i]=0;
+  }
 
-  Kc[0:n1*n2] = 0.0;
-  Xc[0:n1*n2*nVec] = 0.0;
 
   // ~~~~~~~~~~~~~~~~~~~~ SETUP KERNEL
   for (uint32_t j=0; j<n2; j++) {
@@ -393,8 +411,13 @@ void conv2dnopad( double * const PhiGrid,
 
   // ============================== EVEN-ODD
 
-  Kc[0:n1*n2] = 0.0;
-  Xc[0:n1*n2*nVec] = 0.0;
+  for(int i=0;i<n1*n2;i++){
+    Kc[i]=0;
+  }
+  for(int i=0;i<n1*n2*nVec;i++){
+    Xc[i]=0;
+  }
+
 
   // ~~~~~~~~~~~~~~~~~~~~ SETUP KERNEL
   for (uint32_t j=0; j<n2; j++) {
@@ -467,8 +490,13 @@ void conv2dnopad( double * const PhiGrid,
 
   // ============================== ODD-ODD
 
-  Kc[0:n1*n2] = 0.0;
-  Xc[0:n1*n2*nVec] = 0.0;
+  for(int i=0;i<n1*n2;i++){
+    Kc[i]=0;
+  }
+  for(int i=0;i<n1*n2*nVec;i++){
+    Xc[i]=0;
+  }
+
 
   // ~~~~~~~~~~~~~~~~~~~~ SETUP KERNEL
   for (uint32_t j=0; j<n2; j++) {
@@ -550,7 +578,6 @@ void conv2dnopad( double * const PhiGrid,
   fftw_destroy_plan( planc_rhs );
   fftw_destroy_plan( planc_inverse );
 
-  fftw_cleanup_threads();
 
   // ~~~~~~~~~~~~~~~~~~~~ DE-ALLOCATE MEMORIES
   fftw_free( K );
@@ -559,6 +586,7 @@ void conv2dnopad( double * const PhiGrid,
 
 }
 
+/*
 void conv3dnopad( double * const PhiGrid,
                   const double * const VGrid,
                   const double h,

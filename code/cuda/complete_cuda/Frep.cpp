@@ -1,9 +1,4 @@
-#include "common.hpp"
-#include <cmath>
-#include <limits>
-#include "utils.cuh"
-#include "relocateData.hpp"
-#include "nuconv.hpp"
+#include "Frep.hpp"
 
 coord computeFrepulsive_exact(coord *frep, coord *pointsX, int N, int d) {
 
@@ -51,13 +46,12 @@ coord computeFrepulsive_exact(coord *frep, coord *pointsX, int N, int d) {
 }
 
 template <typename dataval>
-dataval zetaAndForce(dataval *const F,            // Forces
+dataval zetaAndForceCPU(dataval *const F,            // Forces
                      const dataval *const Y,      // Coordinates
                      const dataval *const Phi,    // Values
                      const uint32_t *const iPerm, // Permutation
                      const uint32_t nPts,         // #points
                      const uint32_t nDim) {       // #dimensions
-
   dataval Z = 0;
 
   // compute normalization term
@@ -68,6 +62,7 @@ dataval zetaAndForce(dataval *const F,            // Forces
       Z -= 2 * (Y[i * nDim + j] * Phi[i * (nDim + 1) + j + 1]);
     }
     Z += (1 + 2 * Ysq) * Phi[i * (nDim + 1)];
+
   }
 
   Z = Z - nPts;
@@ -120,8 +115,7 @@ coord computeFrepulsive_interpCPU(coord *Frep, coord *y, int n, int d, double h,
   nGrid = getBestGridSize(nGrid);
 
   //#ifdef VERBOSE
-  std::cout << "Grid: " << nGrid << " h: " << h << "maxy: " << maxy
-            << std::endl;
+  //printf("maxy=%lf\n",maxy );
   //#endif
 
   // ~~~~~~~~~~ setup inputs to nuConv
@@ -171,13 +165,15 @@ coord computeFrepulsive_interpCPU(coord *Frep, coord *y, int n, int d, double h,
   // ~~~~~~~~~~ compute Z and repulsive forces
 
   // start = tsne_start_timer();
-  coord zeta = zetaAndForce(Frep, yr, PhiScat, iPerm, n, d);
+
+  coord zeta = zetaAndForceCPU(Frep, yr, PhiScat, iPerm, n, d);
   /*
   if (timeInfo != NULL)
     timeInfo[4] = tsne_stop_timer("F&Z", start);
   else
     tsne_stop_timer("F&Z", start);
   */
+
   free(yt);
   free(yr);
   free(VScat);

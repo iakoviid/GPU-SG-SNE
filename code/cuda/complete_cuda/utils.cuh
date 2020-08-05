@@ -1,5 +1,5 @@
-#ifndef UTILS_HPP
-#define UTILS_HPP
+#ifndef UTILS_CUH
+#define UTILS_CUH
 #include "common.cuh"
 #include "tsne.cuh"
 #include <cmath>

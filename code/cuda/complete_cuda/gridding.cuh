@@ -23,8 +23,13 @@ __inline__ __host__ __device__ coord g2(coord d) {
 }
 
 #endif
-__global__ void s2g1d(coord *V, coord *y, coord *q, uint32_t ng,
-                      uint32_t nPts, uint32_t nDim, uint32_t nVec, coord maxy);
+__global__ void s2g1d(coord *V, coord *y, coord *q, uint32_t ng, uint32_t nPts,
+                      uint32_t nDim, uint32_t nVec, coord maxy);
 __global__ void g2s1d(coord *Phi, coord *V, coord *y, uint32_t ng,
                       uint32_t nPts, uint32_t nDim, uint32_t nVec);
+__global__ void s2g2d(coord *V, coord *y, coord *q, uint32_t ng, uint32_t nPts,
+                      uint32_t nDim, uint32_t nVec, coord maxy);
+__global__ void g2s2d(coord *Phi, coord *V, coord *y, uint32_t ng,
+                      uint32_t nPts, uint32_t nDim, uint32_t nVec);
+
 #endif

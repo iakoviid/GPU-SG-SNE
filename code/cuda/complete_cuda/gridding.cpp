@@ -137,6 +137,7 @@ void s2g2dCpu(coord *V, coord *y, coord *q, uint32_t ng, uint32_t np,
       v2[1] = g1(d);
       v2[2] = g1(1 - d);
       v2[3] = g2(2 - d);
+      //printf("f1 =%d ,f2=%d  \n",f1 ,f2  );
 
       for (uint32_t j = 0; j < nVec; j++) {
 

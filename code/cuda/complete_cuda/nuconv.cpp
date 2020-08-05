@@ -1,13 +1,12 @@
 
 #include "nuconv.hpp"
-//#include "gridding.cpp"
-//#include "non_periodic_conv.cpp"
+#include "gridding.hpp"
+#include "non_periodic_conv.hpp"
 
 void nuconvCPU( coord *PhiScat, coord *y, coord *VScat,
              uint32_t *ib, uint32_t *cb,
              int n, int d, int m, int np, int nGridDim){
 
-  struct timeval start;
   // ~~~~~~~~~~ normalize coordinates (inside bins)
   coord maxy = 0;
   for (int i = 0; i < n*d; i++)
@@ -34,14 +33,14 @@ void nuconvCPU( coord *PhiScat, coord *y, coord *VScat,
   int szV = pow( nGridDim+2, d ) * m;
   coord *VGrid = static_cast<coord *> ( calloc( szV * np, sizeof(coord) ) );
 
-  start = tsne_start_timer();
 
 
   switch (d) {
 
   case 1:
-    if (nGridDim <= GRID_SIZE_THRESHOLD)
-      s2g1dCuda( VGrid, y, VScat, nGridDim+2, np, n, d, m );
+    if (nGridDim <= GRID_SIZE_THRESHOLD){
+      s2g1dCpu( VGrid, y, VScat, nGridDim+2, np, n, d, m );
+      }
     else
       printf("papa\n" );
       //s2g1drb( VGrid, y, VScat, ib, cb, nGridDim+2, np, n, d, m );
@@ -69,8 +68,8 @@ void nuconvCPU( coord *PhiScat, coord *y, coord *VScat,
     break;
 
   }
-*/
-  // ----- reduction across processors
+
+  // ---- reduction across processors
   for( int i=0; i < szV ; i++ )
     for (int j=1; j<np; j++)
       VGrid[i] += VGrid[ j*szV + i ];
@@ -85,8 +84,7 @@ void nuconvCPU( coord *PhiScat, coord *y, coord *VScat,
     nGridDims[i] = nGridDim + 2;
   }
 
-  start = tsne_start_timer();
-/*
+
   switch (d) {
 
   case 1:
@@ -94,36 +92,40 @@ void nuconvCPU( coord *PhiScat, coord *y, coord *VScat,
     break;
 
   case 2:
-    conv2dnopad( PhiGrid, VGrid, h, nGridDims, m, d, np );
+  printf("papa\n" );
+
+    //conv2dnopad( PhiGrid, VGrid, h, nGridDims, m, d, np );
     break;
 
   case 3:
-    conv3dnopad( PhiGrid, VGrid, h, nGridDims, m, d, np );
+  printf("papa\n" );
+
+    //conv3dnopad( PhiGrid, VGrid, h, nGridDims, m, d, np );
     break;
 
   }
-*/
+
 
 
   // ~~~~~~~~~~ grid2scat
-  start = tsne_start_timer();
-/*
+
   switch (d) {
 
   case 1:
-    g2s1d( PhiScat, PhiGrid, y, nGridDim+2, n, d, m );
+    g2s1dCpu( PhiScat, PhiGrid, y, nGridDim+2, n, d, m );
     break;
 
   case 2:
-    g2s2d( PhiScat, PhiGrid, y, nGridDim+2, n, d, m );
+    printf("papa\n" );
+    //g2s2d( PhiScat, PhiGrid, y, nGridDim+2, n, d, m );
     break;
 
   case 3:
-    g2s3d( PhiScat, PhiGrid, y, nGridDim+2, n, d, m );
+    printf("papa\n" );
+    //g2s3d( PhiScat, PhiGrid, y, nGridDim+2, n, d, m );
     break;
 
   }
-*/
 
 
   // ~~~~~~~~~~ deallocate memory

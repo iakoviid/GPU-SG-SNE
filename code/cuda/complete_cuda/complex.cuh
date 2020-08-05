@@ -1,6 +1,7 @@
 #ifndef COMPLEX_CUH
 #define COMPLEX_CUH
 #include "common.cuh"
+#include <math.h>
 typedef float2 Complex;
 
 // Complex addition
