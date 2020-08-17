@@ -1,8 +1,8 @@
+#include "matrix_indexing.hpp"
 #include "non_periodic_conv.cuh"
 #include "utils_cuda.cuh"
-#include "matrix_indexing.hpp"
-#define idx2(i,j,d) (SUB2IND2D(i,j,d))
-#define idx3(i,j,k,d1,d2) (SUB2IND3D(i,j,k,d1,d2))
+#define idx2(i, j, d) (SUB2IND2D(i, j, d))
+#define idx3(i, j, k, d1, d2) (SUB2IND3D(i, j, k, d1, d2))
 
 #define CUDART_PI_F 3.141592654f
 // Complex pointwise multiplication
@@ -29,7 +29,7 @@ __global__ void setDataFft1D(Complex *Kc, Complex *Xc, int ng, int nVec,
 
         Complex arg;
         arg.x = 0;
-        arg.y = -2 * CUDART_PI_F * i / (2*ng);
+        arg.y = -2 * CUDART_PI_F * i / (2 * ng);
         Kc[i] = ComplexMul(Kc[i], my_cexpf(arg));
       }
     }
@@ -38,7 +38,7 @@ __global__ void setDataFft1D(Complex *Kc, Complex *Xc, int ng, int nVec,
       if (sign == -1) {
         Complex arg;
         arg.x = 0;
-        arg.y = -2 * CUDART_PI_F * i /(2* ng);
+        arg.y = -2 * CUDART_PI_F * i / (2 * ng);
         Xc[i + j * ng] = ComplexMul(Xc[i + j * ng], my_cexpf(arg));
       }
     }
@@ -46,78 +46,82 @@ __global__ void setDataFft1D(Complex *Kc, Complex *Xc, int ng, int nVec,
 }
 
 __global__ void setDataFft2D(Complex *Kc, Complex *Xc, int n1, int n2, int nVec,
-                             const double *const VGrid, coord hsq, int signx,int signy) {
-
-
+                             const coord *const VGrid, coord hsq, int signx,
+                             int signy) {
 
   for (uint32_t j = blockIdx.y * blockDim.y + threadIdx.y; j < n2;
        j += blockDim.y * gridDim.y) {
     for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n1;
          i += blockDim.x * gridDim.x) {
-           Kc[idx2(i,j,n1)].x = kernel2d( hsq, i, j );
-           if (i > 0) {Kc[idx2(i,j,n1)].x += signx * kernel2d( hsq,n1-i, j );}
-           if (j > 0) {Kc[idx2(i,j,n1)].x +=  signy * kernel2d( hsq,i,n2-j );}
-           if (i>0 && j > 0) {Kc[idx2(i,j,n1)].x += signx*signy * kernel2d( hsq,n1-i,n2-j );}
+      Kc[idx2(i, j, n1)].x = kernel2d(hsq, i, j);
+      if (i > 0) {
+        Kc[idx2(i, j, n1)].x += signx * kernel2d(hsq, n1 - i, j);
+      }
+      if (j > 0) {
+        Kc[idx2(i, j, n1)].x += signy * kernel2d(hsq, i, n2 - j);
+      }
+      if (i > 0 && j > 0) {
+        Kc[idx2(i, j, n1)].x += signx * signy * kernel2d(hsq, n1 - i, n2 - j);
+      }
 
-           for(uint32_t iVec = 0; iVec < nVec; iVec++){
-             Xc[ idx3(i, j, iVec ,n1, n2) ].x=VGrid[ idx3(i, j, iVec, n1, n2) ];
-               if(signx==-1){
-                 Complex arg;
-                 arg.x = 0;
-                 arg.y = -2 * CUDART_PI_F * i / (2*n1);
-                 Xc[ idx3(i, j, iVec ,n1, n2) ] = ComplexMul(Xc[ idx3(i, j, iVec ,n1, n2) ], my_cexpf(arg));
-               }
-               if(signy==-1){
-                 Complex arg;
-                 arg.x = 0;
-                 arg.y = -2 * CUDART_PI_F * j / (2*n2);
-                 Xc[ idx3(i, j, iVec ,n1, n2) ] = ComplexMul(Xc[ idx3(i, j, iVec ,n1, n2) ], my_cexpf(arg));
-               }
+      for (uint32_t iVec = 0; iVec < nVec; iVec++) {
+        Xc[idx3(i, j, iVec, n1, n2)].x = VGrid[idx3(i, j, iVec, n1, n2)];
+        if (signx == -1) {
+          Complex arg;
+          arg.x = 0;
+          arg.y = -2 * CUDART_PI_F * i / (2 * n1);
+          Xc[idx3(i, j, iVec, n1, n2)] =
+              ComplexMul(Xc[idx3(i, j, iVec, n1, n2)], my_cexpf(arg));
+        }
+        if (signy == -1) {
+          Complex arg;
+          arg.x = 0;
+          arg.y = -2 * CUDART_PI_F * j / (2 * n2);
+          Xc[idx3(i, j, iVec, n1, n2)] =
+              ComplexMul(Xc[idx3(i, j, iVec, n1, n2)], my_cexpf(arg));
+        }
+      }
+      if (signx == -1) {
+        Complex arg;
+        arg.x = 0;
+        arg.y = -2 * CUDART_PI_F * i / (2 * n1);
+        Kc[idx2(i, j, n1)] = ComplexMul(Kc[idx2(i, j, n1)], my_cexpf(arg));
+      }
 
-           }
-           if(signx==-1){
-             Complex arg;
-             arg.x = 0;
-             arg.y = -2 * CUDART_PI_F * i / (2*n1);
-             Kc[idx2(i,j,n1)] = ComplexMul(Kc[idx2(i,j,n1)], my_cexpf(arg));
-           }
-
-           if(signy==-1){
-             Complex arg;
-             arg.x = 0;
-             arg.y = -2 * CUDART_PI_F * j / (2*n2);
-             Kc[idx2(i,j,n1)] = ComplexMul(Kc[idx2(i,j,n1)], my_cexpf(arg));
-           }
-
-
+      if (signy == -1) {
+        Complex arg;
+        arg.x = 0;
+        arg.y = -2 * CUDART_PI_F * j / (2 * n2);
+        Kc[idx2(i, j, n1)] = ComplexMul(Kc[idx2(i, j, n1)], my_cexpf(arg));
+      }
     }
   }
-
 }
-__global__ void addToPhiGrid(Complex *Xc, coord *PhiGrid, int ng,coord scale) {
+__global__ void addToPhiGrid(Complex *Xc, coord *PhiGrid, int ng, coord scale) {
 
   const int numThreads = blockDim.x * gridDim.x;
   const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
   for (int i = threadID; i < ng; i += numThreads) {
-    PhiGrid[i] += scale* Xc[i].x;
+    PhiGrid[i] += scale * Xc[i].x;
   }
 }
 
-__global__ void normalizeInverse(Complex *Xc, int ng) {
+__global__ void normalizeInverse(Complex *Xc, int ng, uint32_t nVec) {
 
   const int numThreads = blockDim.x * gridDim.x;
   const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
   for (int i = threadID; i < ng; i += numThreads) {
-    Complex arg;
-    arg.x = 0;
-    arg.y = +2 * CUDART_PI_F * i / (2*ng);
-    Xc[i] = ComplexMul(Xc[i], my_cexpf(arg));
+    for (uint32_t iVec = 0; iVec < nVec; iVec++) {
+      Complex arg;
+      arg.x = 0;
+      arg.y = +2 * CUDART_PI_F * i / (2 * ng);
+      Xc[i + iVec * ng] = ComplexMul(Xc[i + iVec * ng], my_cexpf(arg));
+    }
   }
 }
 
 __global__ void normalizeInverse2D(Complex *Xc, uint32_t n1, uint32_t n2,
                                    uint32_t nVec, int signx, int signy) {
-
 
   for (uint32_t j = blockIdx.y * blockDim.y + threadIdx.y; j < n2;
        j += blockDim.y * gridDim.y) {
@@ -143,16 +147,20 @@ __global__ void normalizeInverse2D(Complex *Xc, uint32_t n1, uint32_t n2,
   }
 }
 
-void conv1dnopadcuda(coord *PhiGrid, coord *VGrid, coord h, int nGridDim,
-                     int nVec, int nDim) {
+void conv1dnopadcuda(coord *PhiGrid, coord *VGrid, coord h,
+                     uint32_t *const nGridDims, int nVec, int nDim) {
 
+  uint32_t nGridDim = nGridDims[0];
   coord hsq = h * h;
   Complex *Kc, *Xc;
   CUDA_CALL(cudaMallocManaged(&Kc, nGridDim * sizeof(Complex)));
   CUDA_CALL(cudaMallocManaged(&Xc, nVec * nGridDim * sizeof(Complex)));
 
-  cufftHandle plan;
+  cufftHandle plan, plan_rhs;
+  ;
   cufftPlan1d(&plan, nGridDim, CUFFT_C2C, 1);
+  cufftPlanMany(&plan_rhs, 1, ng, NULL, 1, nGridDim, NULL, 1, nGridDim,
+                CUFFT_C2C, nVec);
   /*even*/
   setDataFft1D<<<32, 256>>>(Kc, Xc, nGridDim, nVec, VGrid, hsq, 1);
 
@@ -160,19 +168,16 @@ void conv1dnopadcuda(coord *PhiGrid, coord *VGrid, coord h, int nGridDim,
 
   cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Kc),
                reinterpret_cast<cufftComplex *>(Kc), CUFFT_FORWARD);
-
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
+               reinterpret_cast<cufftComplex *>(Xc), CUFFT_FORWARD);
   for (int j = 0; j < nVec; j++) {
-    cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(&Xc[j * nGridDim]),
-                 reinterpret_cast<cufftComplex *>(&Xc[j * nGridDim]),
-                 CUFFT_FORWARD);
+
     ComplexPointwiseMulAndScale<<<32, 256>>>(&Xc[j * nGridDim], Kc, nGridDim,
                                              1.0f);
-    cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(&Xc[j * nGridDim]),
-                 reinterpret_cast<cufftComplex *>(&Xc[j * nGridDim]),
-                 CUFFT_INVERSE);
-    addToPhiGrid<<<32, 256>>>(&Xc[j * nGridDim], &PhiGrid[j * nGridDim],
-                              nGridDim,(0.5 / nGridDim));
   }
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
+               reinterpret_cast<cufftComplex *>(Xc), CUFFT_INVERSE);
+  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, nGridDim * nVec, (0.5 / nGridDim));
 
   cudaDeviceSynchronize(); // why
 
@@ -180,25 +185,26 @@ void conv1dnopadcuda(coord *PhiGrid, coord *VGrid, coord h, int nGridDim,
 
   cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Kc),
                reinterpret_cast<cufftComplex *>(Kc), CUFFT_FORWARD);
-
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
+               reinterpret_cast<cufftComplex *>(Xc), CUFFT_FORWARD);
 
   for (int j = 0; j < nVec; j++) {
-    cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(&Xc[j * nGridDim]),
-                 reinterpret_cast<cufftComplex *>(&Xc[j * nGridDim]),
-                 CUFFT_FORWARD);
+
     ComplexPointwiseMulAndScale<<<32, 256>>>(&Xc[j * nGridDim], Kc, nGridDim,
                                              1.0f);
-    cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(&Xc[j * nGridDim]),
-                 reinterpret_cast<cufftComplex *>(&Xc[j * nGridDim]),
-                 CUFFT_INVERSE);
-    normalizeInverse<<<32, 256>>>(&Xc[j * nGridDim], nGridDim);
-    addToPhiGrid<<<32, 256>>>(&Xc[j * nGridDim], &PhiGrid[j * nGridDim],nGridDim,(0.5 / nGridDim));
   }
+
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
+               reinterpret_cast<cufftComplex *>(Xc), CUFFT_INVERSE);
+
+  normalizeInverse<<<32, 256>>>(Xc, nGridDim, nVec);
+
+  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, nGridDim * nVec, (0.5 / nGridDim));
 
   return;
 }
-void conv2dnopadcuda(double *const PhiGrid, const double *const VGrid,
-                     const double h, uint32_t *const nGridDims,
+void conv2dnopadcuda(coord *const PhiGrid, const coord *const VGrid,
+                     const coord h, uint32_t *const nGridDims,
                      const uint32_t nVec, const uint32_t nDim) {
   coord hsq = h * h;
   Complex *Kc, *Xc;
@@ -206,12 +212,12 @@ void conv2dnopadcuda(double *const PhiGrid, const double *const VGrid,
   // find the size of the last dimension in FFTW (add padding)
   uint32_t n1 = nGridDims[0];
   uint32_t n2 = nGridDims[1];
-  int ng[2]={n1,n2};
+  int ng[2] = {n1, n2};
   CUDA_CALL(cudaMallocManaged(&Kc, n1 * n2 * sizeof(Complex)));
   CUDA_CALL(cudaMallocManaged(&Xc, nVec * n1 * n2 * sizeof(Complex)));
   cufftHandle plan, plan_rhs;
   cufftPlanMany(&plan, 2, ng, NULL, 1, 0, NULL, 1, 0, CUFFT_C2C, 1);
-  cufftPlanMany(&plan_rhs, 2, ng, NULL, 1, 0, NULL, 1, 0, CUFFT_C2C,
+  cufftPlanMany(&plan_rhs, 2, ng, NULL, 1, n1 * n2, NULL, 1, n1 * n2, CUFFT_C2C,
                 nVec);
 
   // ============================== EVEN-EVEN
@@ -219,34 +225,26 @@ void conv2dnopadcuda(double *const PhiGrid, const double *const VGrid,
   setDataFft2D<<<32, 256>>>(Kc, Xc, n1, n2, nVec, VGrid, hsq, 1, 1);
   cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Kc),
                reinterpret_cast<cufftComplex *>(Kc), CUFFT_FORWARD);
-  cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Xc),
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
                reinterpret_cast<cufftComplex *>(Xc), CUFFT_FORWARD);
+
   for (int j = 0; j < nVec; j++) {
     ComplexPointwiseMulAndScale<<<32, 256>>>(&Xc[j * n1 * n2], Kc, n1 * n2,
                                              1.0f);
   }
-  Complex* Xc_h=(Complex *)malloc(n1*n2*nVec*sizeof(Complex));
-  cudaMemcpy(Xc_h, Xc, n1*n2*nVec*sizeof(coord), cudaMemcpyDeviceToHost);
-  printf("~~~~~~~~~~~~~CUDA~~~~~~~~~~~~" );
-  for(int iVec=0;iVec<nVec;iVec++){
-    for(int i=0;i<n1;i++){
-      for(int j=0;j<n2;j++){
-        printf("PhiGrid=%lf + %lf i\n",Xc_h[idx3(i, j, iVec ,n1, n2)].x,Xc_h[idx3(i, j, iVec ,n1, n2)].y );
-      }
-    }
-  }
+
   cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
                reinterpret_cast<cufftComplex *>(Xc), CUFFT_INVERSE);
-  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid,  n1*n2*nVec, (0.25 / (n1 * n2)));
-
+  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, n1 * n2 * nVec, (0.25 / (n1 * n2)));
 
   // ============================== ODD-EVEN
 
   setDataFft2D<<<32, 256>>>(Kc, Xc, n1, n2, nVec, VGrid, hsq, -1, 1);
   cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Kc),
                reinterpret_cast<cufftComplex *>(Kc), CUFFT_FORWARD);
-  cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Xc),
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
                reinterpret_cast<cufftComplex *>(Xc), CUFFT_FORWARD);
+
   for (int j = 0; j < nVec; j++) {
     ComplexPointwiseMulAndScale<<<32, 256>>>(&Xc[j * n1 * n2], Kc, n1 * n2,
                                              1.0f);
@@ -254,14 +252,14 @@ void conv2dnopadcuda(double *const PhiGrid, const double *const VGrid,
   cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
                reinterpret_cast<cufftComplex *>(Xc), CUFFT_INVERSE);
   normalizeInverse2D<<<32, 256>>>(Xc, n1, n2, nVec, -1, 1);
-  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, n1*n2*nVec, (0.25 / (n1 * n2)));
+  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, n1 * n2 * nVec, (0.25 / (n1 * n2)));
 
   // ============================== EVEN-ODD
 
   setDataFft2D<<<32, 256>>>(Kc, Xc, n1, n2, nVec, VGrid, hsq, 1, -1);
   cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Kc),
                reinterpret_cast<cufftComplex *>(Kc), CUFFT_FORWARD);
-  cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Xc),
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
                reinterpret_cast<cufftComplex *>(Xc), CUFFT_FORWARD);
   for (int j = 0; j < nVec; j++) {
     ComplexPointwiseMulAndScale<<<32, 256>>>(&Xc[j * n1 * n2], Kc, n1 * n2,
@@ -271,23 +269,243 @@ void conv2dnopadcuda(double *const PhiGrid, const double *const VGrid,
                reinterpret_cast<cufftComplex *>(Xc), CUFFT_INVERSE);
   normalizeInverse2D<<<32, 256>>>(Xc, n1, n2, nVec, 1, -1);
 
-  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, n1*n2*nVec, (0.25 / (n1 * n2)));
+  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, n1 * n2 * nVec, (0.25 / (n1 * n2)));
 
   // ============================== ODD-ODD
 
   setDataFft2D<<<32, 256>>>(Kc, Xc, n1, n2, nVec, VGrid, hsq, -1, -1);
   cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Kc),
                reinterpret_cast<cufftComplex *>(Kc), CUFFT_FORWARD);
-  cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Xc),
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
                reinterpret_cast<cufftComplex *>(Xc), CUFFT_FORWARD);
+
   for (int j = 0; j < nVec; j++) {
     ComplexPointwiseMulAndScale<<<32, 256>>>(&Xc[j * n1 * n2], Kc, n1 * n2,
                                              1.0f);
   }
   cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
                reinterpret_cast<cufftComplex *>(Xc), CUFFT_INVERSE);
-  normalizeInverse2D<<<32, 256>>>(Xc, n1, n2, nVec, 1, -1);
-  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, n1*n2*nVec, (0.25 / (n1 * n2)));
 
+  normalizeInverse2D<<<32, 256>>>(Xc, n1, n2, nVec, -1, -1);
+  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, n1 * n2 * nVec, (0.25 / (n1 * n2)));
+}
 
+__global__ void setDataFft3D(Complex *Kc, Complex *Xc, int n1, int n2, int n3, int nVec,
+                             const coord *const VGrid, coord hsq, int signx,
+                             int signy, int signz) {
+  for (uint32_t k = blockIdx.z * blockDim.z + threadIdx.z; k < n3;
+       k += blockDim.z * gridDim.z) {
+
+    for (uint32_t j = blockIdx.y * blockDim.y + threadIdx.y; j < n2;
+         j += blockDim.y * gridDim.y) {
+      for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n1;
+           i += blockDim.x * gridDim.x) {
+        Kc[idx3(i, j, k, n1, n2)].x = kernel3d(hsq, i, j, k);
+        if (i > 0) {
+          Kc[idx3(i, j, k, n1, n2)].x += signx * kernel3d(hsq, n1 - i, j, k);
+        }
+        if (j > 0) {
+          Kc[idx3(i, j, k, n1, n2)].x += signx * kernel3d(hsq, i,n2 - j, k);
+        }
+        if (i > 0 && j > 0) {
+          Kc[idx3(i, j, k, n1, n2)].x += signx * kernel3d(hsq, n1 - i,n2 - j, k);
+        }
+        if (k > 0) {
+          Kc[idx3(i, j, k, n1, n2)].x += signx * kernel3d(hsq, i, j,n3 - k);
+        }
+        if (k > 0 && i > 0) {
+          Kc[idx3(i, j, k, n1, n2)].x += signx * kernel3d(hsq, n1 - i, j,n3 - k);
+        }
+        if (k > 0 && j > 0) {
+          Kc[idx3(i, j, k, n1, n2)].x += signx * kernel3d(hsq, i,n2- j,n3- k);
+        }
+        if (k > 0 && i > 0 && j > 0) {
+          Kc[idx3(i, j, k, n1, n2)].x += signx * kernel3d(hsq, n1 - i,n2- j,n3- k);
+        }
+
+        for (uint32_t iVec = 0; iVec < nVec; iVec++) {
+          Xc[idx4(i, j, k, iVec, n1, n2, n3)].x =
+              VGrid[idx4(i, j, k, iVec, n1, n2, n3)];
+          if (signx == -1) {
+            Complex arg;
+            arg.x = 0;
+            arg.y = -2 * CUDART_PI_F * i / (2 * n1);
+            Xc[idx4(i, j, k, iVec, n1, n2, n3)] =
+                ComplexMul(Xc[idx4(i, j, k, iVec, n1, n2, n3)], my_cexpf(arg));
+          }
+          if (signy == -1) {
+            Complex arg;
+            arg.x = 0;
+            arg.y = -2 * CUDART_PI_F * j / (2 * n2);
+            Xc[idx4(i, j, k, iVec, n1, n2, n3)] =
+                ComplexMul(Xc[idx4(i, j, k, iVec, n1, n2, n3)], my_cexpf(arg));
+          }
+          if (signz == -1) {
+            Complex arg;
+            arg.x = 0;
+            arg.y = -2 * CUDART_PI_F * k / (2 * n3);
+            Xc[idx4(i, j, k, iVec, n1, n2, n3)] =
+                ComplexMul(Xc[idx4(i, j, k, iVec, n1, n2, n3)], my_cexpf(arg));
+          }
+        }
+        if (signx == -1) {
+          Complex arg;
+          arg.x = 0;
+          arg.y = -2 * CUDART_PI_F * i / (2 * n1);
+          Kc[idx3(i, j, k, n1, n2)] =
+              ComplexMul(Kc[idx3(i, j, k, n1, n2)], my_cexpf(arg));
+        }
+
+        if (signy == -1) {
+          Complex arg;
+          arg.x = 0;
+          arg.y = -2 * CUDART_PI_F * j / (2 * n2);
+          Kc[idx3(i, j, k, n1, n2)] =
+              ComplexMul(Kc[idx3(i, j, k, n1, n2)], my_cexpf(arg));
+        }
+
+        if (signz == -1) {
+          Complex arg;
+          arg.x = 0;
+          arg.y = -2 * CUDART_PI_F * k / (2 * n3);
+          Kc[idx3(i, j, k, n1, n2)] =
+              ComplexMul(Kc[idx3(i, j, k, n1, n2)], my_cexpf(arg));
+        }
+      }
+    }
+  }
+}
+
+__global__ void normalizeInverse3D(Complex *Xc, uint32_t n1, uint32_t n2,
+                                   uint32_t n3, uint32_t nVec, int signx,
+                                   int signy, int signz) {
+
+  for (uint32_t k = blockIdx.z * blockDim.z + threadIdx.z; k < n3;
+       k += blockDim.z * gridDim.z) {
+
+    for (uint32_t j = blockIdx.y * blockDim.y + threadIdx.y; j < n2;
+         j += blockDim.y * gridDim.y) {
+      for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n1;
+           i += blockDim.x * gridDim.x) {
+        for (uint32_t iVec = 0; iVec < nVec; iVec++) {
+          if (signx == -1) {
+            Complex arg;
+            arg.x = 0;
+            arg.y = +2 * CUDART_PI_F * i / (2 * n1);
+            Xc[idx4(i, j, k, iVec, n1, n2, n3)] =
+                ComplexMul(Xc[idx4(i, j, k, iVec, n1, n2, n3)], my_cexpf(arg));
+          }
+          if (signy == -1) {
+            Complex arg;
+            arg.x = 0;
+            arg.y = +2 * CUDART_PI_F * j / (2 * n2);
+            Xc[idx4(i, j, k, iVec, n1, n2, n3)] =
+                ComplexMul(Xc[idx4(i, j, k, iVec, n1, n2, n3)], my_cexpf(arg));
+          }
+          if (signz == -1) {
+            Complex arg;
+            arg.x = 0;
+            arg.y = +2 * CUDART_PI_F * k / (2 * n3);
+            Xc[idx4(i, j, k, iVec, n1, n2, n3)] =
+                ComplexMul(Xc[idx4(i, j, k, iVec, n1, n2, n3)], my_cexpf(arg));
+          }
+        }
+      }
+    }
+  }
+}
+void term3D(Complex *Kc, Complex *Xc, uint32_t n1, uint32_t n2, uint32_t n3,
+            uint32_t nVec, const coord *const VGrid, coord *PhiGrid, coord hsq,
+            cufftHandle plan, cufftHandle plan_rhs, int signx, int signy,
+            int signz) {
+
+  setDataFft3D<<<32, 256>>>(Kc, Xc, n1, n2, n3, nVec, VGrid, hsq, signx, signy,
+                            signz);
+  cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Kc),
+               reinterpret_cast<cufftComplex *>(Kc), CUFFT_FORWARD);
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
+               reinterpret_cast<cufftComplex *>(Xc), CUFFT_FORWARD);
+
+  for (int j = 0; j < nVec; j++) {
+    ComplexPointwiseMulAndScale<<<32, 256>>>(&Xc[j * n1 * n2 * n3], Kc,
+                                             n1 * n2 * n3, 1.0f);
+  }
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
+               reinterpret_cast<cufftComplex *>(Xc), CUFFT_INVERSE);
+  normalizeInverse3D<<<32, 256>>>(Xc, n1, n2, n3, nVec, signx, signy, signz);
+  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, n1 * n2 * n3 * nVec,
+                            (0.125 / (n1 * n2 * n3)));
+}
+
+void conv3dnopadcuda(coord *const PhiGrid, const coord *const VGrid,
+                     const coord h, uint32_t *const nGridDims,
+                     const uint32_t nVec, const uint32_t nDim) {
+
+  coord hsq = h * h;
+  Complex *Kc, *Xc;
+
+  // find the size of the last dimension in FFTW (add padding)
+  uint32_t n1 = nGridDims[0];
+  uint32_t n2 = nGridDims[1];
+  uint32_t n3 = nGridDims[2];
+  int ng[2] = {n1, n2, n3};
+  CUDA_CALL(cudaMallocManaged(&Kc, n1 * n2 * n3 * sizeof(Complex)));
+  CUDA_CALL(cudaMallocManaged(&Xc, nVec * n1 * n2 * n3 * sizeof(Complex)));
+  cufftHandle plan, plan_rhs;
+  cufftPlanMany(&plan, 3, ng, NULL, 1, 0, NULL, 1, 0, CUFFT_C2C, 1);
+  cufftPlanMany(&plan_rhs, 3, ng, NULL, 1, n1 * n2 * n3, NULL, 1, n1 * n2 * n3,
+                CUFFT_C2C, nVec);
+
+  // ============================== EVEN-EVEN-EVEN
+
+  setDataFft3D<<<32, 256>>>(Kc, Xc, n1, n2, n3, nVec, VGrid, hsq, 1, 1, 1);
+  cufftExecC2C(plan, reinterpret_cast<cufftComplex *>(Kc),
+               reinterpret_cast<cufftComplex *>(Kc), CUFFT_FORWARD);
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
+               reinterpret_cast<cufftComplex *>(Xc), CUFFT_FORWARD);
+
+  for (int j = 0; j < nVec; j++) {
+    ComplexPointwiseMulAndScale<<<32, 256>>>(&Xc[j * n1 * n2 * n3], Kc,
+                                             n1 * n2 * n3, 1.0f);
+  }
+
+  cufftExecC2C(plan_rhs, reinterpret_cast<cufftComplex *>(Xc),
+               reinterpret_cast<cufftComplex *>(Xc), CUFFT_INVERSE);
+  addToPhiGrid<<<32, 256>>>(Xc, PhiGrid, n1 * n2 * n3 * nVec,
+                            (0.125 / (n1 * n2 * n3)));
+
+  // ============================== ODD-EVEN-EVEN
+
+  term3D(Kc, Xc, n1, n2, n3, nVec, VGrid, PhiGrid, hsq, plan, plan_rhs, -1, 1,
+         1);
+
+  // ============================== EVEN-ODD-EVEN
+
+  term3D(Kc, Xc, n1, n2, n3, nVec, VGrid, PhiGrid, hsq, plan, plan_rhs, 1, -1,
+         1);
+
+  // ============================== ODD-ODD-EVEN
+
+  term3D(Kc, Xc, n1, n2, n3, nVec, VGrid, PhiGrid, hsq, plan, plan_rhs, -1, -1,
+         1);
+
+  // ============================== EVEN-EVEN-ODD
+
+  term3D(Kc, Xc, n1, n2, n3, nVec, VGrid, PhiGrid, hsq, plan, plan_rhs, 1, 1,
+         -1);
+
+  // ============================== EVEN-ODD-EVEN
+
+  term3D(Kc, Xc, n1, n2, n3, nVec, VGrid, PhiGrid, hsq, plan, plan_rhs, 1, -1,
+         1);
+
+  // ============================== EVEN-ODD-ODD
+
+  term3D(Kc, Xc, n1, n2, n3, nVec, VGrid, PhiGrid, hsq, plan, plan_rhs, 1, -1,
+         -1);
+
+  // ============================== ODD-ODD-ODD
+
+  term3D(Kc, Xc, n1, n2, n3, nVec, VGrid, PhiGrid, hsq, plan, plan_rhs, -1, -1,
+         -1);
 }

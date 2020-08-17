@@ -8,13 +8,11 @@
 #include "nuconv.cuh"
 #include "Frep.cuh"
 #include "Frep.hpp"
-#include "gradient_descend.hpp"
-#include "gradient_descend.cuh"
 #include <iostream>
-#include "tsne.cuh"
+//#include "tsne.cuh"
 
 using namespace std;
-typedef double coord;
+#include "types.hpp"
 #include "matrix_indexing.hpp"
 
 #define idx2(i,j,d) (SUB2IND2D(i,j,d))
@@ -50,6 +48,13 @@ void compair(dataPoint *const w, dataPoint *dv, int n, int d,const  char *messag
   int bro = 1;
   dataPoint *v = (dataPoint *)malloc(n * d * sizeof(dataPoint));
   cudaMemcpy(v, dv, d * n * sizeof(dataPoint), cudaMemcpyDeviceToHost);
+  for(int i=0;i<3;i++){
+    for(int j=0;j<d;j++){
+      printf("%lf - %lf   ",w[i*d+j],v[i+j*n] );
+    }
+  }
+printf("\n" );
+
   printf(
       "----------------------------------Compair %s----------------------------"
       "-----------\n",
@@ -59,7 +64,7 @@ void compair(dataPoint *const w, dataPoint *dv, int n, int d,const  char *messag
       if (same == 0) {
         if (abs(w[i * d + j] - v[i + j * n]) < 0.01) {
           // printf("Succes host=%lf vs cuda=%lf\n",w[i*d+j],v[i+j*n]);
-        } else {
+        } else if(i==50 ){
           bro = 0;
           cout << "Error "
                << "Host=" << w[i * d + j] << " vs Cuda=" << v[i + j * n]
@@ -69,7 +74,7 @@ void compair(dataPoint *const w, dataPoint *dv, int n, int d,const  char *messag
       } else {
         if (abs(w[i + j * n] - v[i + j * n]) < 0.01 ){
           // printf("Succes host=%lf vs cuda=%lf\n",w[i*d+j],v[i+j*n]);
-        } else {
+        } else if(i==50 ) {
           bro = 0;
           cout << "Error "
                << "Host=" << w[i + j * n] << " vs Cuda=" << v[i + j * n]
@@ -111,13 +116,145 @@ template <class dataPoint>
 
 int main(int argc, char **argv) {
   int n = 1 << atoi(argv[1]);
-  int d = atoi(argv[2]);
-  int ng = atoi(argv[3]);
+  int d = 2;
+  int ng = 14;
   coord *y, *y_d;
+  struct timeval t1, t2;
+  double elapsedTime;
 
   CUDA_CALL(cudaMallocManaged(&y_d, (d)*n * sizeof(coord)));
   y = generateRandomCoord(n, d);
   copydata(y, y_d, n, d);
+  compair(y, y_d, n, d, "Y", 0);
+
+  uint32_t *ib, *cb, *ib_h, *cb_h;
+  CUDA_CALL(cudaMallocManaged(&ib, ng * sizeof(uint32_t)));
+  CUDA_CALL(cudaMallocManaged(&cb, ng * sizeof(uint32_t)));
+  ib_h=(uint32_t *)malloc(ng*sizeof(uint32_t));
+  cb_h=(uint32_t *)malloc(ng*sizeof(uint32_t));
+  thrust::device_vector<uint32_t> iPerm(n);
+  thrust::sequence(iPerm.begin(), iPerm.end());
+  uint32_t *iPerm_h = (uint32_t *)malloc(n * sizeof(uint32_t));
+  for (int i = 0; i < n; i++) {
+    iPerm_h[i] = i;
+  }
+  relocateCoarseGrid(y_d, iPerm, ib, cb, n, ng, d);
+  relocateCoarseGridCPU(&y, &iPerm_h, ib_h, cb_h, n, ng, d, 1);
+
+  coord *VScat = generateRandomCoord(n, d + 1);
+  coord *VScat_d;
+  CUDA_CALL(cudaMallocManaged(&VScat_d, (d + 1) * n * sizeof(coord)));
+  copydata(VScat, VScat_d, n, d + 1);
+  int nVec=d+1;
+  coord* Phi=(coord *)malloc(n*nVec*sizeof(coord));
+  coord* Phi_d;
+  CUDA_CALL(cudaMallocManaged(&Phi_d,nVec*n*sizeof(coord)));
+
+
+  compair(y, y_d, n, d, "Y", 0);
+
+  gettimeofday(&t1, NULL);
+
+  nuconvCPU(Phi,y, VScat,ib_h, cb_h,n,d,nVec,1,ng+2);
+  gettimeofday(&t2, NULL);
+
+  elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;      // sec to ms
+  elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;   // us to ms
+  printf("Host time milliseconds %f\n", elapsedTime);
+  gettimeofday(&t1, NULL);
+
+  nuconv(Phi_d,y_d, VScat_d, ib, cb, n, d, nVec, ng+2);
+  cudaDeviceSynchronize();
+  gettimeofday(&t2, NULL);
+
+  elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;      // sec to ms
+  elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;   // us to ms
+  printf("CUDA time milliseconds %f\n", elapsedTime);
+  compair(Phi, Phi_d, n, d + 1, "nuconv ", 0);
+  compair(y, y_d, n, d, "Relocation", 0);
+  coord maxy = 0;
+  for (int i = 0; i < n * d; i++)
+    maxy = maxy < y[i] ? y[i] : maxy;
+
+  coord h = maxy / (ng - 1 - std::numeric_limits<double>::epsilon());
+
+  coord *Frep, *Frep_d;
+  Frep=(coord *)malloc(n*d*sizeof(coord));
+  CUDA_CALL(cudaMallocManaged(&Frep_d, (d)*n * sizeof(coord)));
+  coord zeta1;
+  coord zeta2;
+  gettimeofday(&t1, NULL);
+
+  zeta1=computeFrepulsive_interpCPU(Frep, y,  n,  d, h,1);
+  gettimeofday(&t2, NULL);
+
+  elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;      // sec to ms
+  elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;   // us to ms
+  printf("Host time milliseconds %f\n", elapsedTime);
+  gettimeofday(&t1, NULL);
+
+  zeta2= computeFrepulsive_interp(Frep_d, y_d, n, d, h);
+  cudaDeviceSynchronize();
+  gettimeofday(&t2, NULL);
+
+  elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;      // sec to ms
+  elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;   // us to ms
+  printf("CUDA time milliseconds %f\n", elapsedTime);
+
+  printf("zeta1=%lf vs zeta2=%lf\n",zeta1,zeta2 );
+  compair(Frep, Frep_d, n, d, "Frep", 0);
+
+
+/*  coord maxy = 0;
+  for (int i = 0; i < n * d; i++)
+    maxy = maxy < y[i] ? y[i] : maxy;
+
+  coord h = maxy / (ng - 1 - std::numeric_limits<double>::epsilon());
+
+  coord *Frep, *Frep_d;
+  Frep=(coord *)malloc(n*d*sizeof(coord));
+  CUDA_CALL(cudaMallocManaged(&Frep_d, (d)*n * sizeof(coord)));
+  struct timeval t1, t2;
+  cudaEvent_t start, stop;
+  float milliseconds = 0;
+
+  double elapsedTime;
+  coord zeta1;
+  coord zeta2;
+  for(int i=10; i<23;i++){
+  printf("->i=%d\n",i );
+  n=1<<i;
+  gettimeofday(&t1, NULL);
+   zeta1=computeFrepulsive_interpCPU(Frep, y,  n,  d, h,1);
+  gettimeofday(&t2, NULL);
+  elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;      // sec to ms
+  elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;   // us to ms
+  printf("Host Frep milliseconds %f\n", elapsedTime);
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  cudaEventRecord(start);
+   zeta2= computeFrepulsive_interp(Frep_d, y_d, n, d, h);
+  cudaEventRecord(stop);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&milliseconds, start, stop);
+  printf("CUDA Frep milliseconds %f\n", milliseconds);
+
+  printf("zeta1=%lf vs zeta2=%lf\n",zeta1,zeta2 );
+  compair(Frep, Frep_d, n, d, "Frep", 0);
+
+}
+*/
+  //compair(y, y_d, n, d, "KL", 0);
+/*
+
+  coord *Frep, *Frep_d;
+  Frep=(coord *)malloc(n*d*sizeof(coord));
+  CUDA_CALL(cudaMallocManaged(&Frep_d, (d)*n * sizeof(coord)));
+  coord zeta1=computeFrepulsive_interpCPU(Frep, y,  n,  d, h,1);
+  coord zeta2= computeFrepulsive_interp(Frep_d, y_d, n, d, h);
+  printf("zeta1=%lf vs zeta2=%lf\n",zeta1,zeta2 );
+  compair(Frep, Frep_d, n, d, "Frep", 0);
+/*
   uint32_t *ib, *cb, *ib_h, *cb_h;
   CUDA_CALL(cudaMallocManaged(&ib, ng * sizeof(uint32_t)));
   CUDA_CALL(cudaMallocManaged(&cb, ng * sizeof(uint32_t)));
@@ -133,6 +270,18 @@ int main(int argc, char **argv) {
   relocateCoarseGridCPU(&y, &iPerm_h, ib_h, cb_h, n, ng, d, 1);
 
   compair(y, y_d, n, d, "Y", 0);
+  coord *VScat = generateRandomCoord(n, d + 1);
+  coord *VScat_d;
+  CUDA_CALL(cudaMallocManaged(&VScat_d, (d + 1) * n * sizeof(coord)));
+  copydata(VScat, VScat_d, n, d + 1);
+  int nVec=d+1;
+  coord* Phi=(coord *)malloc(n*nVec*sizeof(coord));
+  coord* Phi_d;
+  CUDA_CALL(cudaMallocManaged(&Phi_d,nVec*n*sizeof(coord)));
+
+  nuconvCPU(Phi,y, VScat,ib_h, cb_h,n,d,nVec,1,ng+2);
+  nuconv(Phi_d,y_d, VScat_d, ib, cb, n, d, nVec, ng+2);
+  compair(Phi, Phi_d, n, d + 1, "nuconv ", 0);
 
   printf("2 dimensions~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" );
   coord maxy = 0;
@@ -152,10 +301,7 @@ int main(int argc, char **argv) {
     coord *VGrid_d;
     CUDA_CALL(cudaMallocManaged(&VGrid_d, szV * sizeof(coord)));
 
-    coord *VScat = generateRandomCoord(n, d + 1);
-    coord *VScat_d;
-    CUDA_CALL(cudaMallocManaged(&VScat_d, (d + 1) * n * sizeof(coord)));
-    copydata(VScat, VScat_d, n, d + 1);
+
 
     s2g2dCpu(VGrid, y, VScat, ng+2, 1,n,d,d+1);
     s2g2d<<<32, 256>>>(VGrid_d, y_d, VScat_d, ng + 2, n, d, d + 1, maxy);
@@ -177,15 +323,16 @@ int main(int argc, char **argv) {
       //printf("%lf   vs    %lf\n",VGrid[i],VGridh[i] );
     }
     */
+    /*
     compair(VGrid, VGrid_d, pow(ng + 2, d), d + 1, "VGrid", 1);
-    int nVec=d+1;
-    coord* Phi=(coord *)malloc(n*nVec*sizeof(coord));
-    coord* Phi_d;
-    CUDA_CALL(cudaMallocManaged(&Phi_d,nVec*n*sizeof(coord)));
-    g2s1dCpu(Phi,VGrid,y,ng+2,n,d,nVec);
-    g2s1d<<<32,256>>>(Phi_d,VGrid_d,y_d,ng+2,n,d,nVec);
+    //int nVec=d+1;
+    //coord* Phi=(coord *)malloc(n*nVec*sizeof(coord));
+    //coord* Phi_d;
+    //CUDA_CALL(cudaMallocManaged(&Phi_d,nVec*n*sizeof(coord)));
+    //g2s2dCpu(Phi,VGrid,y,ng+2,n,d,nVec);
+    //g2s2d<<<32,256>>>(Phi_d,VGrid_d,y_d,ng+2,n,d,nVec);
 
-    compair(Phi, Phi_d, n, d + 1, "Phi", 0);
+    //compair(Phi, Phi_d, n, d + 1, "Phi", 0);
 
     coord *PhiGrid = static_cast<coord *>(calloc(szV, sizeof(coord)));
     coord *PhiGrid_d;
@@ -205,9 +352,31 @@ int main(int argc, char **argv) {
 
 
     compair(PhiGrid, PhiGrid_d, tpoints, d + 1, "PhiFFT", 1);
-
+*/
   return 0;
 /*
+
+Complex *Xc_h = (Complex *)malloc(n1 * n2 * nVec * sizeof(Complex));
+cudaMemcpy(Xc_h, Xc, n1 * n2 * nVec * sizeof(Complex),
+           cudaMemcpyDeviceToHost);
+printf("~~~~~~~~~~~~~CUDA~~~~~~~~~~~~");
+for (int iVec = 0; iVec < nVec; iVec++) {
+  for (int i = 0; i < n1; i++) {
+    for (int j = 0; j < n2; j++) {
+      printf("PhiGrid=%lf + %lf i\n", Xc_h[idx3(i, j, iVec, n1, n2)].x,
+             Xc_h[idx3(i, j, iVec, n1, n2)].y);
+    }
+  }
+}
+printf("~~~~~~~~~~~~~HOST~~~~~~~~~~~~" );
+for(int iVec=0;iVec<nVec;iVec++){
+  for(int i=0;i<n1;i++){
+    for(int j=0;j<n2;j++){
+      printf("PhiGrid=%lf + %lf i\n",Xc[SUB2IND3D(i, j, iVec ,n1, n2)].real(),Xc[SUB2IND3D(i, j, iVec ,n1, n2)].imag() );
+    }
+  }
+}
+
   coord maxy = 0;
   for (int i = 0; i < n * d; i++)
     maxy = maxy < y[i] ? y[i] : maxy;

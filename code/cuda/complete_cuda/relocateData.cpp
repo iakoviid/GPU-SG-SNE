@@ -8,6 +8,8 @@
 
 
 #include "relocateData.hpp"
+#include <sys/time.h>
+
 #define LIMIT_SEQ 512
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ALLOCATION UTILITIES
@@ -202,10 +204,16 @@ void doSort_top( uint64_t * const Cs, uint64_t * const Ct,
   for (int i=0; i<np; i++){
     int size = ((i+1)*m < n) ? m : (n - i*m);
     for(int j=0; j<size; j++) {
+
       uint32_t const ii = ( Cs[ i*m + j ] >> sft ) & mask;
       BinCursor[ i*nBin + ii ]++;
+
     }
   }
+  for(int i=0;i<nBin;i++){
+    //printf("BinCursor[%d]=%d\n",i,BinCursor[i] );
+  }
+  //printf("\n" );
 
   int offset = 0;
   for (int i=0; i<nBin; i++){
@@ -215,6 +223,10 @@ void doSort_top( uint64_t * const Cs, uint64_t * const Ct,
       offset += ss;
     }
   }
+  for(int i=0;i<nBin;i++){
+    //printf("BinCursor[%d]=%d\n",i,BinCursor[i] );
+  }
+  //printf("\n" );
 
   // permute points
   for (int j=0; j<np; j++){
@@ -232,6 +244,10 @@ void doSort_top( uint64_t * const Cs, uint64_t * const Ct,
       BinCursor[j*nBin + ii]++;
     }
   }
+  for(int i=0;i<nBin;i++){
+    //printf("BinCursor[%d]=%d\n",i,BinCursor[i] );
+  }
+  //printf("\n" );
 
   if (sft>=nbits){
 
@@ -368,9 +384,16 @@ void relocateCoarseGridCPU( coord  ** Yptr,        // Scattered point coordinate
 
   // ========== perform binning and relocation
   uint32_t qLevel = ceil(log(nGridDim)/log(2));
-  doSort_top( C1, C2, iPerm, iPerm2, Y, Y2, 0,
-              qLevel, (nDim-1)*qLevel, nPts, nDim, nGridDim, np );
+  struct timeval t1, t2;
+  double elapsedTime;
+  gettimeofday(&t1, NULL);
+  doSort_top(C1, C2, iPerm, iPerm2, Y, Y2, 0, qLevel, (nDim - 1) * qLevel, nPts,
+             nDim, nGridDim, 1);
+  gettimeofday(&t2, NULL);
 
+  elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;    // sec to ms
+  elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0; // us to ms
+  printf("SORT time milliseconds %f\n", elapsedTime);
   // ========== deallocate memory and return correct pointers
 
   if ( (nDim%2) == 1 ){
@@ -393,7 +416,6 @@ void relocateCoarseGridCPU( coord  ** Yptr,        // Scattered point coordinate
     free(iPerm2);
   }
   free( C1 ); free( C2 );
-
   return;
 
 }

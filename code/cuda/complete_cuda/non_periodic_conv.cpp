@@ -1,6 +1,7 @@
 
 #include "non_periodic_conv.hpp"
 
+#include "convolution_nopadding_helper.cpp"
 
 coord const pi = 4 * std::atan(1);
 
@@ -43,7 +44,7 @@ void conv1dnopad(coord *const PhiGrid, const coord *const VGrid,
 
   // get twiddle factors
   for (uint32_t i=0; i<nGridDims[0]; i++)
-    wc[i] = std::polar(1.0, -2*pi*i/(2*nGridDims[0]) );
+    wc[i] = std::polar((coord)1.0,(coord) -2*pi*i/(2*nGridDims[0]) );
 
   for(int i=0;i<n1;i++){
     Kc[i]=0;
@@ -202,9 +203,9 @@ void conv1dnopad(coord *const PhiGrid, const coord *const VGrid,
 }
 
 
-void conv2dnopad( double * const PhiGrid,
-                  const double * const VGrid,
-                  const double h,
+void conv2dnopad( coord * const PhiGrid,
+                  const coord * const VGrid,
+                  const coord h,
                   uint32_t * const nGridDims,
                   const uint32_t nVec,
                   const uint32_t nDim,
@@ -212,11 +213,11 @@ void conv2dnopad( double * const PhiGrid,
 
   // ~~~~~~~~~~~~~~~~~~~~ DEFINE VARIABLES
   fftw_complex *K, *X, *w;
-  std::complex<double> *Kc, *Xc, *wc;
+  std::complex<coord> *Kc, *Xc, *wc;
   fftw_plan planc_kernel, planc_rhs, planc_inverse;
 
   // get h^2
-  double hsq = h*h;
+  coord hsq = h*h;
 
   // find the size of the last dimension in FFTW (add padding)
   uint32_t n1=nGridDims[0];
@@ -236,13 +237,13 @@ void conv2dnopad( double * const PhiGrid,
   X = (fftw_complex *) fftw_malloc( n1 * n2 * nVec * sizeof(fftw_complex) );
   w = (fftw_complex *) fftw_malloc( n1 * sizeof(fftw_complex) );
 
-  Kc = reinterpret_cast<std::complex<double> *> (K);
-  Xc = reinterpret_cast<std::complex<double> *> (X);
-  wc = reinterpret_cast<std::complex<double> *> (w);
+  Kc = reinterpret_cast<std::complex<coord> *> (K);
+  Xc = reinterpret_cast<std::complex<coord> *> (X);
+  wc = reinterpret_cast<std::complex<coord> *> (w);
 
   // get twiddle factors
   for (uint32_t i=0; i<nGridDims[0]; i++)
-    wc[i] = std::polar(1.0, -2*pi*i/(2*nGridDims[0]) );
+    wc[i] = std::polar((coord) 1.0,(coord) -2*pi*i/(2*nGridDims[0]) );
   for(int i=0;i<n1*n2;i++){
     Kc[i]=0;
   }
@@ -274,7 +275,7 @@ void conv2dnopad( double * const PhiGrid,
   // ~~~~~~~~~~~~~~~~~~~~ SETUP KERNEL
   for (uint32_t j=0; j<n2; j++) {
     for (uint32_t i=0; i<n1; i++) {
-      std::complex<double> tmp( kernel2d( hsq, i, j ), 0 );
+      std::complex<coord> tmp( kernel2d( hsq, i, j ), 0 );
       Kc[SUB2IND2D(i,j,n1)]      += tmp;
       if (i>0) Kc[SUB2IND2D(n1-i,j,n1)] += tmp;
       if (j>0) Kc[SUB2IND2D(i,n2-j,n1)] += tmp;
@@ -299,20 +300,15 @@ void conv2dnopad( double * const PhiGrid,
   // ---------- execute RHS plan
   fftw_execute(planc_rhs);
 
+
+
+
   // ~~~~~~~~~~~~~~~~~~~~ HADAMARD PRODUCT
   for (uint32_t jVec=0; jVec<nVec; jVec++) {
     for (uint32_t j=0; j<n2; j++){
       for (uint32_t i=0; i<n1; i++){
         Xc[SUB2IND3D(i,j,jVec,n1,n2)] = Xc[SUB2IND3D(i,j,jVec,n1,n2)] *
           Kc[SUB2IND2D(i,j,n1)];
-      }
-    }
-  }
-  printf("~~~~~~~~~~~~~HOST~~~~~~~~~~~~" );
-  for(int iVec=0;iVec<nVec;iVec++){
-    for(int i=0;i<n1;i++){
-      for(int j=0;j<n2;j++){
-        printf("PhiGrid=%lf + %lf i\n",Xc[SUB2IND3D(i, j, iVec ,n1, n2)].real(),Xc[SUB2IND3D(i, j, iVec ,n1, n2)].imag() );
       }
     }
   }
@@ -343,7 +339,7 @@ void conv2dnopad( double * const PhiGrid,
   // ~~~~~~~~~~~~~~~~~~~~ SETUP KERNEL
   for (uint32_t j=0; j<n2; j++) {
     for (uint32_t i=0; i<n1; i++) {
-      std::complex<double> tmp( kernel2d( hsq, i, j ), 0 );
+      std::complex<coord> tmp( kernel2d( hsq, i, j ), 0 );
       Kc[SUB2IND2D(i,j,n1)]      += tmp;
       if (i>0) Kc[SUB2IND2D(n1-i,j,n1)] -= tmp;
       if (j>0) Kc[SUB2IND2D(i,n2-j,n1)] += tmp;
@@ -422,7 +418,7 @@ void conv2dnopad( double * const PhiGrid,
   // ~~~~~~~~~~~~~~~~~~~~ SETUP KERNEL
   for (uint32_t j=0; j<n2; j++) {
     for (uint32_t i=0; i<n1; i++) {
-      std::complex<double> tmp( kernel2d( hsq, i, j ), 0 );
+      std::complex<coord> tmp( kernel2d( hsq, i, j ), 0 );
       Kc[SUB2IND2D(i,j,n1)]      += tmp;
       if (i>0) Kc[SUB2IND2D(n1-i,j,n1)] += tmp;
       if (j>0) Kc[SUB2IND2D(i,n2-j,n1)] -= tmp;
@@ -501,7 +497,7 @@ void conv2dnopad( double * const PhiGrid,
   // ~~~~~~~~~~~~~~~~~~~~ SETUP KERNEL
   for (uint32_t j=0; j<n2; j++) {
     for (uint32_t i=0; i<n1; i++) {
-      std::complex<double> tmp( kernel2d( hsq, i, j ), 0 );
+      std::complex<coord> tmp( kernel2d( hsq, i, j ), 0 );
       Kc[SUB2IND2D(i,j,n1)]      += tmp;
       if (i>0) Kc[SUB2IND2D(n1-i,j,n1)] -= tmp;
       if (j>0) Kc[SUB2IND2D(i,n2-j,n1)] -= tmp;
@@ -567,7 +563,7 @@ void conv2dnopad( double * const PhiGrid,
   for (uint32_t iVec=0; iVec<nVec; iVec++){
     for (uint32_t j=0; j<n2; j++){
       for (uint32_t i=0; i<n1; i++){
-        PhiGrid[ SUB2IND3D(i, j, iVec, n1, n2) ] *= 0.25 / ((double) n1*n2);
+        PhiGrid[ SUB2IND3D(i, j, iVec, n1, n2) ] *= 0.25 / ((coord) n1*n2);
       }
     }
   }
@@ -586,10 +582,10 @@ void conv2dnopad( double * const PhiGrid,
 
 }
 
-/*
-void conv3dnopad( double * const PhiGrid,
-                  const double * const VGrid,
-                  const double h,
+
+void conv3dnopad( coord * const PhiGrid,
+                  const coord * const VGrid,
+                  const coord h,
                   uint32_t * const nGridDims,
                   const uint32_t nVec,
                   const uint32_t nDim,
@@ -597,11 +593,11 @@ void conv3dnopad( double * const PhiGrid,
 
   // ~~~~~~~~~~~~~~~~~~~~ DEFINE VARIABLES
   fftw_complex *K, *X, *w;
-  std::complex<double> *Kc, *Xc, *wc;
+  std::complex<coord> *Kc, *Xc, *wc;
   fftw_plan planc_kernel, planc_rhs, planc_inverse;
 
   // get h^2
-  double hsq = h*h;
+  coord hsq = h*h;
 
   // find the size of the last dimension in FFTW (add padding)
   uint32_t n1=nGridDims[0];
@@ -622,21 +618,25 @@ void conv3dnopad( double * const PhiGrid,
   X = (fftw_complex *) fftw_malloc( n1 * n2 * n3 * nVec * sizeof(fftw_complex) );
   w = (fftw_complex *) fftw_malloc( n1 * sizeof(fftw_complex) );
 
-  Kc = reinterpret_cast<std::complex<double> *> (K);
-  Xc = reinterpret_cast<std::complex<double> *> (X);
-  wc = reinterpret_cast<std::complex<double> *> (w);
+  Kc = reinterpret_cast<std::complex<coord> *> (K);
+  Xc = reinterpret_cast<std::complex<coord> *> (X);
+  wc = reinterpret_cast<std::complex<coord> *> (w);
 
   // get twiddle factors
   for (uint32_t i=0; i<nGridDims[0]; i++)
     wc[i] = std::polar(1.0, -2*pi*i/(2*nGridDims[0]) );
 
-  Kc[0:(n1*n2*n3)] = 0.0;
-  Xc[0:(n1*n2*n3*nVec)] = 0.0;
+ for(int pa=0;pa<n1*n2*n3;pa++){
+   Kc[pa] = 0.0;
+ }
+ for(int pa=0;pa<n1*n2*n3*nVec;pa++){
+   Xc[pa] = 0.0;
+ }
+
+
 
   // ~~~~~~~~~~~~~~~~~~~~ SETUP PARALLELISM
 
-  fftw_init_threads();
-  fftw_plan_with_nthreads(nProc);
 
   // ~~~~~~~~~~~~~~~~~~~~ SETUP FFTW PLANS
 
@@ -693,7 +693,7 @@ void conv3dnopad( double * const PhiGrid,
     for (uint32_t k=0; k<n3; k++){
       for (uint32_t j=0; j<n2; j++){
         for (uint32_t i=0; i<n1; i++){
-          PhiGrid[ SUB2IND4D(i, j, k, iVec, n1, n2, n3) ] *= 0.125 / ((double) n1*n2*n3);
+          PhiGrid[ SUB2IND4D(i, j, k, iVec, n1, n2, n3) ] *= 0.125 / ((coord) n1*n2*n3);
         }
       }
     }
@@ -704,7 +704,6 @@ void conv3dnopad( double * const PhiGrid,
   fftw_destroy_plan( planc_kernel );
   fftw_destroy_plan( planc_rhs );
   fftw_destroy_plan( planc_inverse );
-  fftw_cleanup_threads();
 
   // ~~~~~~~~~~~~~~~~~~~~ DE-ALLOCATE MEMORIES
   fftw_free( K );
@@ -712,4 +711,3 @@ void conv3dnopad( double * const PhiGrid,
   fftw_free( w );
 
 }
-*/

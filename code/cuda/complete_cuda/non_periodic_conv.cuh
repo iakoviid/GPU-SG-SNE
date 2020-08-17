@@ -5,8 +5,6 @@
 #include <cufft.h>
 #include <cufftXt.h>
 
-
-
 #ifndef KERNELS
 #define KERNELS
 __inline__ __device__ __host__ coord kernel1d(coord hsq, coord i) {
@@ -24,7 +22,10 @@ __inline__ __device__ __host__ coord kernel3d(coord hsq, coord i, coord j,
 #endif
 void conv1dnopadcuda(coord *PhiGrid_d, coord *VGrid_d, coord h, int nGridDim,
                      int nVec, int nDim);
-void conv2dnopadcuda(double *const PhiGrid, const double *const VGrid,
-                     const double h, uint32_t *const nGridDims,
+void conv2dnopadcuda(coord *const PhiGrid, const coord *const VGrid,
+                     const coord h, uint32_t *const nGridDims,
+                     const uint32_t nVec, const uint32_t nDim);
+void conv3dnopadcuda(coord *const PhiGrid, const coord *const VGrid,
+                     const coord h, uint32_t *const nGridDims,
                      const uint32_t nVec, const uint32_t nDim);
 #endif

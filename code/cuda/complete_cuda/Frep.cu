@@ -73,6 +73,7 @@ coord zetaAndForce(coord *Ft_d, coord *y_d, int n, int d, coord *Phi,
 
 coord computeFrepulsive_interp(coord *Frep, coord *y, int n, int d, coord h) {
 
+
   // ~~~~~~~~~~ make temporary data copies
   coord* yr,*yt;
   CUDA_CALL(cudaMallocManaged(&yr, (d) * n * sizeof(coord)));
@@ -116,14 +117,21 @@ coord computeFrepulsive_interp(coord *Frep, coord *y, int n, int d, coord h) {
   relocateCoarseGrid(yt,iPerm,ib,cb,n,nGrid,d);
 
 
+
   coord *VScat;
   coord *PhiScat;
   CUDA_CALL(cudaMallocManaged(&VScat, (d+1) * n * sizeof(coord)));
   CUDA_CALL(cudaMallocManaged(&PhiScat, (d+1) * n * sizeof(coord)));
   ComputeCharges(VScat, yt, n, d);
   ArrayCopy<<<32,256>>>(yt,yr,n*d);
-  nuconv(PhiScat,yt, VScat, ib, cb, n, d, d+1, nGrid);
 
+
+  nuconv(PhiScat,yt, VScat, ib, cb, n, d, d+1, nGrid);
+/*
+  coord* PhiScat_h =(coord *) malloc(sizeof(coord)*n*(d+1));
+  cudaMemcpy(PhiScat_h, PhiScat, (d+1) * n * sizeof(coord), cudaMemcpyDeviceToHost);
+  printf("PhiScatGPU=%lf %lf %lf %lf %lf \n",PhiScat_h[0],PhiScat_h[1],PhiScat_h[2],PhiScat_h[3] );
+  */
   thrust::device_vector<coord> zetaVec(n);
   coord zeta = zetaAndForce(Frep, yr, n, d, PhiScat, thrust::raw_pointer_cast(iPerm.data()),zetaVec);
 
