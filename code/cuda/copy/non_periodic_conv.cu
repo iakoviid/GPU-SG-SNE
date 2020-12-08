@@ -150,6 +150,7 @@ void conv1dnopadcuda(coord *PhiGrid, coord *VGrid, coord h, int nGridDim,
                    ) {
 
   coord hsq = h * h;
+
   Complex *Kc, *Xc;
   CUDA_CALL(cudaMallocManaged(&Kc, nGridDim * sizeof(Complex)));
   CUDA_CALL(cudaMallocManaged(&Xc, nVec * nGridDim * sizeof(Complex)));

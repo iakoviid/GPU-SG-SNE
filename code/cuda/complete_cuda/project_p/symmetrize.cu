@@ -1,4 +1,4 @@
-void tsnecuda::util::MaxNormalizeDeviceVector(
+void MaxNormalizeDeviceVector(
         thrust::device_vector<float> &d_vector) {
     float max_val = thrust::transform_reduce(d_vector.begin(), d_vector.end(),
             tsnecuda::util::FunctionalAbs(), 0.0f, thrust::maximum<float>());
@@ -7,7 +7,7 @@ void tsnecuda::util::MaxNormalizeDeviceVector(
                       d_vector.begin(), thrust::divides<float>());
 }
 
-void tsnecuda::util::SymmetrizeMatrix(cusparseHandle_t &handle,
+void SymmetrizeMatrix(cusparseHandle_t &handle,
         thrust::device_vector<float> &d_symmetrized_values,
         thrust::device_vector<int32_t> &d_symmetrized_rowptr,
         thrust::device_vector<int32_t> &d_symmetrized_colind,

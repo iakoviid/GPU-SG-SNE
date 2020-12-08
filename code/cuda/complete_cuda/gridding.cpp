@@ -82,6 +82,11 @@ void s2g1drbCpu(coord *V, coord *y, coord *q, uint32_t *ib, uint32_t *cb,
           coord v1[4];
 
           f1 = (uint32_t)floor(y(0, ib[i] + k));
+          if(i!=f1){
+            //printf("f1=%d vs i=%d\n",f1,i );
+
+          }
+
           d = y(0, ib[i] + k) - (coord)f1;
 
           v1[0] = g2(1 + d);
@@ -107,6 +112,7 @@ void s2g1drbCpu(coord *V, coord *y, coord *q, uint32_t *ib, uint32_t *cb,
     } // (idual)
 
   } // (s)
+
 }
 
 void s2g2dCpu(coord *V, coord *y, coord *q, uint32_t ng, uint32_t np,
@@ -137,7 +143,7 @@ void s2g2dCpu(coord *V, coord *y, coord *q, uint32_t ng, uint32_t np,
       v2[1] = g1(d);
       v2[2] = g1(1 - d);
       v2[3] = g2(2 - d);
-      //printf("f1 =%d ,f2=%d  \n",f1 ,f2  );
+      printf("i=%d f1 =%d ,f2=%d  \n",i,f1 ,f2  );
 
       for (uint32_t j = 0; j < nVec; j++) {
 
@@ -195,7 +201,7 @@ void s2g2drbCpu(coord *V, coord *y, coord *q, uint32_t *ib, uint32_t *cb,
           v2[1] = g1(d);
           v2[2] = g1(1 - d);
           v2[3] = g2(2 - d);
-
+          //if(i==4){printf(" f1=%d f2=%d\n",f1,f2   );}
           for (uint32_t j = 0; j < nVec; j++) {
 
             for (uint32_t idx2 = 0; idx2 < 4; idx2++) {

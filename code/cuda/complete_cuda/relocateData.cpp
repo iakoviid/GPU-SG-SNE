@@ -244,11 +244,9 @@ void doSort_top( uint64_t * const Cs, uint64_t * const Ct,
       BinCursor[j*nBin + ii]++;
     }
   }
-  for(int i=0;i<nBin;i++){
-    //printf("BinCursor[%d]=%d\n",i,BinCursor[i] );
-  }
-  //printf("\n" );
 
+  //printf("\n" );
+  //return;
   if (sft>=nbits){
 
     offset = 0;
@@ -335,12 +333,16 @@ void gridSizeAndIdx( uint32_t * const ib,
 
   uint32_t qLevel = ceil(log(nGridDim)/log(2));
   uint32_t idxCur = -1;
-
+ uint32_t a=-1;
   for (uint32_t i = 0; i < nPts; i++){
 
     uint32_t idxNew = untangleLastDim( C[i], nDim, qLevel );
 
     cb[idxNew]++;
+    if(idxNew!=a){
+      //printf("idxNew=%d i=%d \n",idxNew,i );
+      a=idxNew;
+    }
 
     if (idxNew != idxCur) ib[idxNew+1] = i+1;
 
@@ -415,7 +417,11 @@ void relocateCoarseGridCPU( coord  ** Yptr,        // Scattered point coordinate
     free( Y2 );
     free(iPerm2);
   }
-  free( C1 ); free( C2 );
-  return;
+
+  //printf("Suck\n" );
+
+  //free( C1 ); free( C2 );
+  //printf("ooa\n" );
+  //return;
 
 }

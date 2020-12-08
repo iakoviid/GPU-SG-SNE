@@ -8,7 +8,7 @@
 
 void relocateCoarseGrid(
     coord *Yptr,                            // Scattered point coordinates
-    thrust::device_vector<uint32_t> &iPerm, // Data relocation permutation
+    uint32_t* iPerm, // Data relocation permutation
     uint32_t *ib, // Starting index of box (along last dimension)
     uint32_t *cb, // Number of scattered points per box (along last dimension)
     int nPts,     // Number of data points

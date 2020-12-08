@@ -1,0 +1,13 @@
+#ifndef NUCONV_HPP
+#define NUCONV_HPP
+#include <iostream>
+#include <limits>
+#include <cmath>
+#define GRID_SIZE_THRESHOLD 600  // Differenet parallelism strategy for small grids
+
+#include "common.hpp"
+
+void nuconvCPU( coord *PhiScat, coord *y, coord *VScat,
+             uint32_t *ib, uint32_t *cb,
+             int n, int d, int m, int np, int nGridDim,double* timeInfo);
+#endif
