@@ -1,8 +1,0 @@
-
-n=10000;
-k=5;
-Nint=600;
-xmin=-50;
-xmax=50;
-x=(rand(n,1)-0.5);
-charges=rand(n,1);
