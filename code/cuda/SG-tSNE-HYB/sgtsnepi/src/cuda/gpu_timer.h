@@ -1,11 +1,3 @@
-/*!
-  \file   gpu_timer.h
-  \brief  Simple GPU timer.
-
-  \author Iakovidis Ioannis
-  \date   2021-06-14
-*/
-
 #ifndef GPU_TIMER_H__
 #define GPU_TIMER_H__
 
@@ -28,14 +20,14 @@ struct GpuTimer
     cudaEventDestroy(stop);
   }
 
-  void Start(cudaStream_t stream)
+  void Start()
   {
-    cudaEventRecord(start, stream);
+    cudaEventRecord(start, 0);
   }
 
-  void Stop(cudaStream_t stream)
+  void Stop()
   {
-    cudaEventRecord(stop, stream);
+    cudaEventRecord(stop, 0);
   }
 
   float Elapsed()

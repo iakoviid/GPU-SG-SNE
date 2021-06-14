@@ -23,8 +23,8 @@ int iteration=0;
 coord errorArr[10]={0};
 int comErr=0;
 double waittime=0;
-double computeFrepulsive_GPU(double *Freph, double *yh, int n,
-                                   int d, double h, double *timeInfo);
+coord computeFrepulsive_GPU(coord *Freph, coord *yh, int n, int d, double h,
+                            double *timeInfo);
 template <class dataPoint>
 void compute_dy(dataPoint       * const dy,
 		dataPoint const * const Fattr,

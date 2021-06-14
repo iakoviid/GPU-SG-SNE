@@ -6,14 +6,12 @@
 #include <iostream>
 #include <unistd.h>
 #include <allknn.cuh>
+int OcMaxBlockSize=512;
+int GridSize=64;
+
+#include <hybrid.cuh>
 using namespace std;
 
-//! Compute the approximate all-kNN graph of the input data points
-/*!
-  Compute the k-nearest neighbor dataset points of every point in
-  the datsaet set using approximate k-nearest neighbor search (FLANN).
-
-*/
 int main(int argc, char **argv) {
   int opt;
   coord u = 30;
@@ -118,7 +116,7 @@ int main(int argc, char **argv) {
 	Iin.close();
  */
 allKNNsearchflann(I, D, X, n, d, nn + 1);
-
+/*
 
    std::ofstream Dout;
  Dout.open("D1m.txt");
@@ -130,7 +128,7 @@ allKNNsearchflann(I, D, X, n, d, nn + 1);
   }
  Dout.close();
  Iout.close();
-
+*/
 
   int *Id;
   CUDA_CALL(cudaMallocManaged(&Id, params.n * (nn + 1) * sizeof(int)));
@@ -157,7 +155,24 @@ cudaDeviceSynchronize();
 
   double timeInfo[7*1000+3] = {0};
   double elapsedTime;
- //params.sim=0;
+
+  int blockSize;   // The launch configurator returned block size 
+  int minGridSize; // The minimum grid size needed to achieve the 
+
+  cudaOccupancyMaxPotentialBlockSize( &minGridSize, &blockSize,ell_spmv_kernel<float,2>, 0, 0);
+   std::cout<<"gridSize: "<<minGridSize<<" and blockSize for maximal Occupancy: "<<blockSize<<"\n";
+   
+   int deviceCount = 0;
+   cudaGetDeviceCount(&deviceCount);
+   int numSMs;
+   cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
+   std::cout<<"Number of SMs: "<<numSMs<<" BlockSize for maximal Occupancy: "<<blockSize<<"\n";
+   OcMaxBlockSize=blockSize;
+   GridSize=16*numSMs;
+   GridSize=minGridSize;  
+// cudaOccupancyMaxPotentialBlockSizeVariableSMemWithFlags ( &minGridSize, &blockSize, ell_spmv_kernel<float,2> );
+  // std::cout<<"gridSize: "<<minGridSize<<" and blockSize for maximal Occupancy: "<<blockSize<<"\n";
+
 if (params.sim == 0) {
     coord *yin = (coord *)malloc(sizeof(coord) * d * n);
     ifstream yinf;

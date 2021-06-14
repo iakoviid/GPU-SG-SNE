@@ -8,7 +8,6 @@
 #include "../matrix_indexing.hpp"
 #include "non_periodic_convD.cuh"
 #include "utils_cuda.cuh"
-extern cudaStream_t streamRep;
 #define idx2(i, j, d) (SUB2IND2D(i, j, d))
 #define idx3(i, j, k, d1, d2) (SUB2IND3D(i, j, k, d1, d2))
 #define idx4(i, j, k, l, m, n, o) (SUB2IND4D(i, j, k, l, m, n, o))
@@ -175,27 +174,27 @@ void conv1dnopadcuda(double *PhiGrid, double *VGrid, double h,
   gpuErrchk(cudaMallocManaged(&Kc, n1 * sizeof(ComplexD)));
   gpuErrchk(cudaMallocManaged(&Xc, nVec * n1 * sizeof(ComplexD)));
   /*even*/
-  setDataFft1D<<<Blocks, Threads, 0, streamRep>>>(Kc, Xc, n1, nVec, VGrid, hsq,
+  setDataFft1D<<<Blocks, Threads>>>(Kc, Xc, n1, nVec, VGrid, hsq,
                                                   1);
 
-  // cudaDeviceSynchronize(streamRep);
+  // cudaDeviceSynchronize();
 
   cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex *>(Kc),
                reinterpret_cast<cufftDoubleComplex *>(Kc), CUFFT_FORWARD);
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_FORWARD);
 
-  ComplexPointwiseMulAndScale<<<Blocks, Threads, 0, streamRep>>>(Xc, Kc, n1,
+  ComplexPointwiseMulAndScale<<<Blocks, Threads>>>(Xc, Kc, n1,
                                                                  nVec);
 
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_INVERSE);
-  addToPhiGrid<<<Blocks, Threads, 0, streamRep>>>(Xc, PhiGrid, n1 * nVec,
+  addToPhiGrid<<<Blocks, Threads>>>(Xc, PhiGrid, n1 * nVec,
                                                   (0.5 / n1));
 
-  // cudaDeviceSynchronize(streamRep);
+  // cudaDeviceSynchronize();
 
-  setDataFft1D<<<Blocks, Threads, 0, streamRep>>>(Kc, Xc, n1, nVec, VGrid, hsq,
+  setDataFft1D<<<Blocks, Threads>>>(Kc, Xc, n1, nVec, VGrid, hsq,
                                                   -1);
 
   cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex *>(Kc),
@@ -203,15 +202,15 @@ void conv1dnopadcuda(double *PhiGrid, double *VGrid, double h,
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_FORWARD);
 
-  ComplexPointwiseMulAndScale<<<Blocks, Threads, 0, streamRep>>>(Xc, Kc, n1,
+  ComplexPointwiseMulAndScale<<<Blocks, Threads>>>(Xc, Kc, n1,
                                                                  nVec);
 
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_INVERSE);
 
-  normalizeInverse<<<Blocks, Threads, 0, streamRep>>>(Xc, n1, nVec);
+  normalizeInverse<<<Blocks, Threads>>>(Xc, n1, nVec);
 
-  addToPhiGrid<<<Blocks, Threads, 0, streamRep>>>(Xc, PhiGrid, n1 * nVec,
+  addToPhiGrid<<<Blocks, Threads>>>(Xc, PhiGrid, n1 * nVec,
                                                   (0.5 / n1));
   gpuErrchk(cudaFree(Kc));
   gpuErrchk(cudaFree(Xc));
@@ -231,77 +230,77 @@ void conv2dnopadcuda(double *const PhiGrid, const double *const VGrid,
   gpuErrchk(cudaMallocManaged(&Xc, nVec * n1 * n2 * sizeof(ComplexD)));
   // ============================== EVEN-EVEN
 
-  setDataFft2D<<<Blocks, Threads, 0, streamRep>>>(Kc, Xc, n1, n2, nVec, VGrid,
+  setDataFft2D<<<Blocks, Threads>>>(Kc, Xc, n1, n2, nVec, VGrid,
                                                   hsq, 1, 1);
   cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex *>(Kc),
                reinterpret_cast<cufftDoubleComplex *>(Kc), CUFFT_FORWARD);
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_FORWARD);
 
-  ComplexPointwiseMulAndScale<<<Blocks, Threads, 0, streamRep>>>(Xc, Kc,
+  ComplexPointwiseMulAndScale<<<Blocks, Threads>>>(Xc, Kc,
                                                                  n1 * n2, nVec);
 
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_INVERSE);
-  addToPhiGrid<<<Blocks, Threads, 0, streamRep>>>(Xc, PhiGrid, n1 * n2 * nVec,
+  addToPhiGrid<<<Blocks, Threads>>>(Xc, PhiGrid, n1 * n2 * nVec,
                                                   (0.25 / (n1 * n2)));
 
   // ============================== ODD-EVEN
 
-  setDataFft2D<<<Blocks, Threads, 0, streamRep>>>(Kc, Xc, n1, n2, nVec, VGrid,
+  setDataFft2D<<<Blocks, Threads>>>(Kc, Xc, n1, n2, nVec, VGrid,
                                                   hsq, -1, 1);
   cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex *>(Kc),
                reinterpret_cast<cufftDoubleComplex *>(Kc), CUFFT_FORWARD);
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_FORWARD);
 
-  ComplexPointwiseMulAndScale<<<Blocks, Threads, 0, streamRep>>>(Xc, Kc,
+  ComplexPointwiseMulAndScale<<<Blocks, Threads>>>(Xc, Kc,
                                                                  n1 * n2, nVec);
 
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_INVERSE);
-  normalizeInverse2D<<<Blocks, Threads, 0, streamRep>>>(Xc, n1, n2, nVec, -1,
+  normalizeInverse2D<<<Blocks, Threads>>>(Xc, n1, n2, nVec, -1,
                                                         1);
-  addToPhiGrid<<<Blocks, Threads, 0, streamRep>>>(Xc, PhiGrid, n1 * n2 * nVec,
+  addToPhiGrid<<<Blocks, Threads>>>(Xc, PhiGrid, n1 * n2 * nVec,
                                                   (0.25 / (n1 * n2)));
 
   // ============================== EVEN-ODD
 
-  setDataFft2D<<<Blocks, Threads, 0, streamRep>>>(Kc, Xc, n1, n2, nVec, VGrid,
+  setDataFft2D<<<Blocks, Threads>>>(Kc, Xc, n1, n2, nVec, VGrid,
                                                   hsq, 1, -1);
   cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex *>(Kc),
                reinterpret_cast<cufftDoubleComplex *>(Kc), CUFFT_FORWARD);
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_FORWARD);
-  ComplexPointwiseMulAndScale<<<Blocks, Threads, 0, streamRep>>>(Xc, Kc,
+  ComplexPointwiseMulAndScale<<<Blocks, Threads>>>(Xc, Kc,
                                                                  n1 * n2, nVec);
 
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_INVERSE);
-  normalizeInverse2D<<<Blocks, Threads, 0, streamRep>>>(Xc, n1, n2, nVec, 1,
+  normalizeInverse2D<<<Blocks, Threads>>>(Xc, n1, n2, nVec, 1,
                                                         -1);
 
-  addToPhiGrid<<<Blocks, Threads, 0, streamRep>>>(Xc, PhiGrid, n1 * n2 * nVec,
+  addToPhiGrid<<<Blocks, Threads>>>(Xc, PhiGrid, n1 * n2 * nVec,
                                                   (0.25 / (n1 * n2)));
 
   // ============================== ODD-ODD
 
-  setDataFft2D<<<Blocks, Threads, 0, streamRep>>>(Kc, Xc, n1, n2, nVec, VGrid,
+  setDataFft2D<<<Blocks, Threads>>>(Kc, Xc, n1, n2, nVec, VGrid,
                                                   hsq, -1, -1);
   cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex *>(Kc),
                reinterpret_cast<cufftDoubleComplex *>(Kc), CUFFT_FORWARD);
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_FORWARD);
 
-  ComplexPointwiseMulAndScale<<<Blocks, Threads, 0, streamRep>>>(Xc, Kc,
+  ComplexPointwiseMulAndScale<<<Blocks, Threads>>>(Xc, Kc,
                                                                  n1 * n2, nVec);
 
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_INVERSE);
 
-  normalizeInverse2D<<<Blocks, Threads, 0, streamRep>>>(Xc, n1, n2, nVec, -1,
+  normalizeInverse2D<<<Blocks, Threads>>>(Xc, n1, n2, nVec, -1,
                                                         -1);
-  addToPhiGrid<<<Blocks, Threads, 0, streamRep>>>(Xc, PhiGrid, n1 * n2 * nVec,
+  addToPhiGrid<<<Blocks, Threads>>>(Xc, PhiGrid, n1 * n2 * nVec,
                                                   (0.25 / (n1 * n2)));
   gpuErrchk(cudaFree(Kc));
   gpuErrchk(cudaFree(Xc));
@@ -430,7 +429,7 @@ void term3D(ComplexD *Kc, ComplexD *Xc, uint32_t n1, uint32_t n2, uint32_t n3,
             double hsq, cufftHandle plan, cufftHandle plan_rhs, int signx,
             int signy, int signz) {
 
-  setDataFft3D<<<Blocks, Threads, 0, streamRep>>>(
+  setDataFft3D<<<Blocks, Threads>>>(
       Kc, Xc, n1, n2, n3, nVec, VGrid, hsq, signx, signy, signz);
 
   cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex *>(Kc),
@@ -438,16 +437,16 @@ void term3D(ComplexD *Kc, ComplexD *Xc, uint32_t n1, uint32_t n2, uint32_t n3,
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_FORWARD);
 
-  ComplexPointwiseMulAndScale<<<Blocks, Threads, 0, streamRep>>>(
+  ComplexPointwiseMulAndScale<<<Blocks, Threads>>>(
       Xc, Kc, n1 * n2 * n3, nVec);
 
   cufftExecZ2Z(plan_rhs, reinterpret_cast<cufftDoubleComplex *>(Xc),
                reinterpret_cast<cufftDoubleComplex *>(Xc), CUFFT_INVERSE);
   if (signx == -1 || signy == -1 || signz == -1) {
-    normalizeInverse3D<<<Blocks, Threads, 0, streamRep>>>(Xc, n1, n2, n3, nVec,
+    normalizeInverse3D<<<Blocks, Threads>>>(Xc, n1, n2, n3, nVec,
                                                           signx, signy, signz);
   }
-  addToPhiGrid<<<Blocks, Threads, 0, streamRep>>>(
+  addToPhiGrid<<<Blocks, Threads>>>(
       Xc, PhiGrid, n1 * n2 * n3 * nVec, (0.125 / (n1 * n2 * n3)));
 }
 

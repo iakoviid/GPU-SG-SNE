@@ -12,7 +12,6 @@
 #include "complexD.cuh"
 #include <fstream>
 #include <float.h>
-extern cudaStream_t streamRep;
 extern int Blocks;
 extern int Threads;
 
@@ -51,12 +50,12 @@ void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat,  int n,
             dataPoint *PhiGrid) {
   struct GpuTimer timer;
   int szV = pow(nGridDim + 2, d) * m;
-  timer.Start(streamRep);
+  timer.Start();
 
  // ~~~~~~~~~~ Scale coordinates (inside bins)
   thrust::device_ptr<dataPoint> yVec_ptr(y);
   dataPoint maxy =
-      thrust::reduce(thrust::cuda::par.on(streamRep), yVec_ptr,
+      thrust::reduce( yVec_ptr,
                      yVec_ptr + n * d, 0.0, thrust::maximum<dataPoint>());
  //cudaDeviceSynchronize();
 
@@ -66,17 +65,17 @@ void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat,  int n,
 
   // ~~~~~~~~~~ scat2grid
 
-  Normalize<<<Blocks, Threads, 0, streamRep>>>(y, n, nGridDim + 2, d, maxy);
+  Normalize<<<Blocks, Threads>>>(y, n, nGridDim + 2, d, maxy);
   //cudaDeviceSynchronize();
 
- timer.Stop(streamRep);
+ timer.Stop();
 
   timeInfo[4] += timer.Elapsed()/1000.0;
 
-  timer.Start(streamRep);
+  timer.Start();
   s2g(VGrid, y, VScat, nGridDim, n, d, m);
 
-  timer.Stop(streamRep);
+  timer.Stop();
   timeInfo[0] = timer.Elapsed()/1000.0;
 
  //cudaDeviceSynchronize();
@@ -88,7 +87,7 @@ void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat,  int n,
   for (int i = 0; i < d; i++) {
     nGridDims[i] = nGridDim + 2;
   }
-  timer.Start(streamRep);
+  timer.Start();
 
   switch (d) {
 
@@ -107,14 +106,14 @@ void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat,  int n,
     break;
   }
 // cudaDeviceSynchronize();
-  timer.Stop(streamRep);
+  timer.Stop();
   timeInfo[1] = timer.Elapsed()/1000.0;
 
   // ~~~~~~~~~~ grid2scat
-  timer.Start(streamRep);
+  timer.Start();
   g2s(PhiScat, PhiGrid, y, nGridDim, n, d, m);
 
-  timer.Stop(streamRep);
+  timer.Stop();
   timeInfo[2] = timer.Elapsed()/1000.0;
   // ~~~~~~~~~~ deallocate memory
  //cudaDeviceSynchronize();

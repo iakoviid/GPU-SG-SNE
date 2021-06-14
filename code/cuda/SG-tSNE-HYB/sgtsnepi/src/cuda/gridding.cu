@@ -8,7 +8,6 @@
 #include "../matrix_indexing.hpp"
 #include "gridding.cuh"
 #include "utils_cuda.cuh"
-extern cudaStream_t streamRep;
 extern int Blocks;
 extern int Threads;
 //#define MIXED_PREC_SUM
@@ -24,20 +23,20 @@ void s2g(dataPoint *VGrid, dataPoint *y, dataPoint *VScat, uint32_t nGridDim,
   double *VGridD;
   int szV = pow(nGridDim + 2, d) * m;
   CUDA_CALL(cudaMallocManaged(&VGridD, szV * sizeof(double)));
-  initKernel<<<Blocks, Threads, 0, streamRep>>>(VGridD, (double)0, szV);
+  initKernel<<<Blocks, Threads>>>(VGridD, (double)0, szV);
 
   switch (d) {
 
   case 1:
-    s2g1d<<<Blocks, Threads, 0, streamRep>>>(VGridD, y, VScat, nGridDim + 2, n, d, m);
+    s2g1d<<<Blocks, Threads>>>(VGridD, y, VScat, nGridDim + 2, n, d, m);
     break;
 
   case 2:
-    s2g2d<<<Blocks, Threads, 0, streamRep>>>(VGridD, y, VScat, nGridDim + 2, n, d, m);
+    s2g2d<<<Blocks, Threads>>>(VGridD, y, VScat, nGridDim + 2, n, d, m);
     break;
 
   case 3:
-    s2g3d<<<Blocks, Threads, 0, streamRep>>>(VGridD, y, VScat, nGridDim + 2, n, d, m);
+    s2g3d<<<Blocks, Threads>>>(VGridD, y, VScat, nGridDim + 2, n, d, m);
     break;
   }
   copymixed<<<Blocks, Threads>>>(VGrid, VGridD, szV);
@@ -52,14 +51,14 @@ void s2g(dataPoint *VGrid, dataPoint *y, dataPoint *VScat, uint32_t nGridDim,
   switch (d) {
 
   case 1:
-    s2g1d<<<Blocks, Threads, 0, streamRep>>>(VGrid, y, VScat, nGridDim + 2, n, d, m);
+    s2g1d<<<Blocks, Threads>>>(VGrid, y, VScat, nGridDim + 2, n, d, m);
     break;
   case 2:
-    s2g2d<<<Blocks, Threads, 0, streamRep>>>(VGrid, y, VScat, nGridDim + 2, n, d, m);
+    s2g2d<<<Blocks, Threads>>>(VGrid, y, VScat, nGridDim + 2, n, d, m);
     break;
 
   case 3:
-    s2g3d<<<Blocks, Threads, 0, streamRep>>>(VGrid, y, VScat, nGridDim + 2, n, d, m);
+    s2g3d<<<Blocks, Threads>>>(VGrid, y, VScat, nGridDim + 2, n, d, m);
     break;
   }
 }
@@ -72,19 +71,16 @@ void g2s(dataPoint *PhiScat, dataPoint *PhiGrid, dataPoint *y,
   switch (d) {
 
   case 1:
-    g2s1d<<<Blocks, Threads, 0, streamRep>>>(PhiScat, PhiGrid, y, nGridDim + 2, n, d,
-                                      m);
+    g2s1d<<<Blocks, Threads>>>(PhiScat, PhiGrid, y, nGridDim + 2, n, d, m);
 
     break;
 
   case 2:
-    g2s2d<<<Blocks, Threads, 0, streamRep>>>(PhiScat, PhiGrid, y, nGridDim + 2, n, d,
-                                      m);
+    g2s2d<<<Blocks, Threads>>>(PhiScat, PhiGrid, y, nGridDim + 2, n, d, m);
     break;
 
   case 3:
-    g2s3d<<<Blocks, Threads, 0, streamRep>>>(PhiScat, PhiGrid, y, nGridDim + 2, n, d,
-                                      m);
+    g2s3d<<<Blocks, Threads>>>(PhiScat, PhiGrid, y, nGridDim + 2, n, d, m);
     break;
   }
 }

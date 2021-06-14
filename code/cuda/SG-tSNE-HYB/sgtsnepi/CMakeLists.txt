@@ -62,19 +62,7 @@ set(SOURCES_CPU
 	./src/gradient_descendHYB.cpp
 	./src/qq.cpp
 	./src/demo_perplexity_equalization.cpp
-#	./csb/bandMat.cpp
-#	./csb/bicsb.cpp
-#	./csb/matfileio.cpp
-#	./csb/csc.cpp
-#	./csb/bmcsb.cpp
-#	./csb/bmsym.cpp
-#	./csb/csr_routines.cpp
-#	./csb/utils.cpp
-#	./csb/spvec.cpp
-#	./csb/bssb.cpp
-#	./csb/csbsym.cpp
-#	./csb/SSEspmv.cpp
-#	./csb/matfileio_all.cpp
+
 
 )
 

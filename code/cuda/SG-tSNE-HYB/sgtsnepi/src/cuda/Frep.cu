@@ -7,15 +7,13 @@
 */
 #include "../types.hpp"
 #include "Frep.cuh"
-#include "complexD.cuh"
-#include "complexF.cuh"
 #include "gpu_timer.h"
 #include "gridding.cuh"
+
 #define N_GRID_SIZE 137
-int Blocks=64;
-int Threads=1024;
-cudaStream_t streamRep = 0;
-int initialization=0;
+int Blocks = 64;
+int Threads = 1024;
+int initialization = 0;
 template <class dataPoint>
 __global__ void ComputeChargesKernel(volatile dataPoint *__restrict__ VScat,
                                      const dataPoint *const y, const int n,
@@ -79,14 +77,13 @@ template <class dataPoint>
 dataPoint zetaAndForce(dataPoint *Ft_d, dataPoint *y_d, int n, int d,
                        dataPoint *Phi,
                        thrust::device_vector<dataPoint> &zetaVec) {
-  // can posibly reduce amongs the threads and then divide
 
   compute_repulsive_forces_kernel<<<Blocks, Threads>>>(
       Ft_d, y_d, n, d, Phi, thrust::raw_pointer_cast(zetaVec.data()));
   // cudaDeviceSynchronize();
   dataPoint z = thrust::reduce(zetaVec.begin(), zetaVec.end()) - n;
 
-  normalize<<<Blocks, Threads, 0, streamRep>>>(Ft_d, z, n * d);
+  normalize<<<Blocks, Threads>>>(Ft_d, z, n * d);
   return z;
 }
 
@@ -113,41 +110,46 @@ int getGridSize(int nGrid) {
   return listGridSize[N_GRID_SIZE - 1] - 2;
 }
 
-void initializeLaunchParameters(int* GridSize,int* BlockSize,int d){
+void initializeLaunchParameters(int *GridSize, int *BlockSize, int d) {
 
+  switch (d) {
+  case 1: {
+    cudaOccupancyMaxPotentialBlockSize(GridSize, BlockSize, s2g1d<coord, coord>,
+                                       0, 0);
+    break;
+  }
+  case 2: {
+    cudaOccupancyMaxPotentialBlockSize(GridSize, BlockSize, s2g2d<coord, coord>,
+                                       0, 0);
+    break;
+  }
+  case 3: {
+    cudaOccupancyMaxPotentialBlockSize(GridSize, BlockSize, s2g3d<coord, coord>,
+                                       0, 0);
+    break;
+  }
+  }
 
-    switch (d) {
-    case 1: {
-    cudaOccupancyMaxPotentialBlockSize( GridSize, BlockSize,s2g1d<coord,coord>, 0, 0);
-    break;}
-    case 2: {
-    cudaOccupancyMaxPotentialBlockSize( GridSize, BlockSize,s2g2d<coord,coord>, 0, 0);
-    break;}
-    case 3: {
-    cudaOccupancyMaxPotentialBlockSize( GridSize, BlockSize,s2g3d<coord,coord>, 0, 0);
-    break;}
-    }
-
-    int deviceCount = 0;
-    cudaGetDeviceCount(&deviceCount);
-    int numSMs;
-    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
-    std::cout<<"BlockSize and minimum gridSize for potential maximal occupancy of the S2G kernel: "<<*GridSize<<" , "<<*BlockSize<<"\n";
-    std::cout<<"Number of SMs: "<<numSMs<<"\n";
-
-
-
+  int deviceCount = 0;
+  cudaGetDeviceCount(&deviceCount);
+  int numSMs;
+  cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
+  std::cout << "BlockSize and minimum gridSize for potential maximal occupancy "
+               "of the S2G kernel: "
+            << *GridSize << " , " << *BlockSize << "\n";
+  std::cout << "Number of SMs: " << numSMs << "\n";
 }
-coord computeFrepulsive_GPU(coord *Freph, coord *yh, int n, int d, coord h,
+coord computeFrepulsive_GPU(coord *Freph, coord *yh, int n, int d, double h,
                             double *timeInfo) {
 
-  if(initialization==0){
-  initializeLaunchParameters(&Blocks,&Threads,d);
-  std::cout<<"Choosing GridSize= "<<Blocks<<" and BlockSize= "<<Threads<<"\n";
-  initialization=1;
+  if (initialization == 0) {
+    initializeLaunchParameters(&Blocks, &Threads, d);
+    std::cout << "Choosing GridSize= " << Blocks
+              << " and BlockSize= " << Threads << "\n";
+    initialization = 1;
   }
   struct GpuTimer timer;
-  timer.Start(streamRep);
+  timer.Start();
 
   coord *y;
   gpuErrchk(cudaMallocManaged(&y, (d)*n * sizeof(coord)));
@@ -155,52 +157,46 @@ coord computeFrepulsive_GPU(coord *Freph, coord *yh, int n, int d, coord h,
   coord *Frep;
   gpuErrchk(cudaMallocManaged(&Frep, n * d * sizeof(coord)));
 
-    timer.Stop(streamRep);
+  timer.Stop();
 
-    timeInfo[4] = timer.Elapsed() / 1000.0;
+  timeInfo[4] = timer.Elapsed() / 1000.0;
 
   coord zeta = computeFrepulsive_gpu(Frep, y, n, d, h, timeInfo);
-  timer.Start(streamRep);
+  timer.Start();
 
   gpuErrchk(
       cudaMemcpy(Freph, Frep, n * d * sizeof(coord), cudaMemcpyDeviceToHost));
   gpuErrchk(cudaFree(Frep));
   gpuErrchk(cudaFree(y));
-  timer.Stop(streamRep);
+  timer.Stop();
 
   timeInfo[4] += timer.Elapsed() / 1000.0;
   return zeta;
 }
-coord computeFrepulsive_gpu(coord *Frep, coord *y, int n, int d, coord h,
+
+coord computeFrepulsive_gpu(coord *Frep, coord *y, int n, int d, double h,
                             double *timeInfo) {
 
-  //timeInfo=[S2Gtime G2Gtime G2Gtime Phi2Forcetime PreparatoryOrOtherProctime]
+  // timeInfo=[S2Gtime G2Gtime G2Gtime Phi2Forcetime PreparatoryOrOtherProctime]
   struct GpuTimer timer;
-  timer.Start(streamRep);
+  timer.Start();
 
   int m = d + 1;
 
   // ~~~~~~~~~~ move data to (0,0,...)
-  coord miny[4];
-  thrust::device_ptr<coord> yVec_ptr(y);
-
-  for (int j = 0; j < d; j++) {
-    miny[j] = thrust::reduce(yVec_ptr + j * n, yVec_ptr + n * (j + 1),
-                             std::numeric_limits<coord>::max(),
-                             thrust::minimum<coord>());
-    addScalarToCoord<<<Blocks, Threads>>>(y, -miny[j], n, j, d);
-  }
+  centerPoints(y, n, d);
 
   // Find interpolation grid size
+  thrust::device_ptr<coord> yVec_ptr(y);
   coord maxy =
       thrust::reduce(yVec_ptr, yVec_ptr + n * d, 0.0, thrust::maximum<coord>());
 
-  int ng = std::max((int)std::ceil(maxy / h), 14);
+  int ng = std::max((int)std::ceil(maxy / (coord)h), 14);
 
   int n1 = getGridSize(ng);
   int nGrid = n1;
 
-  //Memory allocations
+  // Memory allocations
   coord *yt;
   gpuErrchk(cudaMallocManaged(&yt, (d)*n * sizeof(coord)));
   coord *VScat;
@@ -257,16 +253,16 @@ coord computeFrepulsive_gpu(coord *Frep, coord *y, int n, int d, coord h,
 
   ComputeCharges(VScat, y, n, d);
 
-  timer.Stop(streamRep);
+  timer.Stop();
 
   timeInfo[4] += timer.Elapsed() / 1000.0;
 
   nuconv(PhiScat, yt, VScat, n, d, m, nGrid, timeInfo, plan, plan_rhs, VGrid,
          PhiGrid);
 
-  timer.Start(streamRep);
+  timer.Start();
   coord zeta = zetaAndForce(Frep, y, n, d, PhiScat, zetaVec);
-  timer.Stop(streamRep);
+  timer.Stop();
   timeInfo[3] = timer.Elapsed() / 1000.0;
 
   cufftDestroy(plan);

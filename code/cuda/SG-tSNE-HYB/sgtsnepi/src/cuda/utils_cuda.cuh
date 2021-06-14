@@ -7,7 +7,8 @@
 */
 #ifndef UTILS_CUDA_CUH
 #define UTILS_CUDA_CUH
-
+extern int Blocks;
+extern int Threads;
 template <typename T>
 __global__ void initKernel(T *devPtr, const T val, const size_t nwords) {
   int tidx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -43,14 +44,17 @@ __global__ void ArrayCopy(const dataPoint *const a,
 }
 
 template <class dataPoint>
-__global__ void copydataKernel(dataPoint *a, dataPoint *b, uint32_t length) {
+__global__ void copydataKernel(volatile dataPoint *__restrict__ a,
+                               const dataPoint *const b,
+                               const uint32_t length) {
   for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < length;
        i += gridDim.x * blockDim.x) {
     a[i] = b[i];
   }
 }
 template <class dataPoint>
-__global__ void normalize(dataPoint *P, dataPoint sum, uint32_t nnz) {
+__global__ void normalize(volatile dataPoint *__restrict__ P,
+                          const dataPoint sum, const uint32_t nnz) {
   for (uint32_t i = threadIdx.x + blockIdx.x * blockDim.x; i < nnz;
        i += gridDim.x * blockDim.x) {
     P[i] /= sum;
@@ -60,8 +64,9 @@ inline __host__ __device__ int iDivUp(int a, int b) {
   return ((a % b) != 0) ? (a / b + 1) : (a / b);
 }
 template <class dataPoint>
-__global__ void addScalarToCoord(dataPoint *y, dataPoint scalar, int n,
-                                 int coordinate, int d) {
+__global__ void addScalarToCoord(volatile dataPoint *__restrict__ y,
+                                 const dataPoint scalar, const int n,
+                                 const int coordinate, const int d) {
   for (register int TID = threadIdx.x + blockIdx.x * blockDim.x; TID < n;
        TID += gridDim.x * blockDim.x) {
     y[TID * d + coordinate] += scalar;
@@ -76,10 +81,35 @@ template <class T> __device__ T warp_reduce(T val) {
 }
 
 template <class dataType1, class dataType2>
-__global__ void copymixed(dataType1 *a, dataType2 *b, int n) {
+__global__ void copymixed(dataType1 *a, dataType2 *b, const int n) {
   for (register int TID = threadIdx.x + blockIdx.x * blockDim.x; TID < n;
        TID += gridDim.x * blockDim.x) {
     a[TID] = (dataType1)b[TID];
+  }
+}
+template <class dataType>
+__global__ void copyCoord(dataType *a, dataType *b, const int n, const int d,
+                          const int j) {
+  for (register int TID = threadIdx.x + blockIdx.x * blockDim.x; TID < n;
+       TID += gridDim.x * blockDim.x) {
+    a[TID] = b[TID * d + j];
+  }
+}
+
+#include <thrust/device_vector.h>
+
+template <class dataPoint>
+void centerPoints(dataPoint *y, const int n, const int d) {
+  thrust::device_vector<dataPoint> x(n);
+  dataPoint miny[4];
+
+  for (int j = 0; j < d; j++) {
+    copyCoord<<<Blocks, Threads>>>(thrust::raw_pointer_cast(x.data()), y, n, d,
+                                   j);
+    miny[j] = thrust::reduce(x.begin(), x.end(),
+                             std::numeric_limits<dataPoint>::max(),
+                             thrust::minimum<dataPoint>());
+    addScalarToCoord<<<Blocks, Threads>>>(y, -miny[j], n, j, d);
   }
 }
 #endif

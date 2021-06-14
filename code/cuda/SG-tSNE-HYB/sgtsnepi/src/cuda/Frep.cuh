@@ -12,14 +12,9 @@
 
 #include "utils_cuda.cuh"
 
-#include <thrust/device_vector.h>
-#include <thrust/functional.h>
-#include <thrust/iterator/counting_iterator.h>
-#include <thrust/reduce.h>
-#include <thrust/sequence.h>
 
-double computeFrepulsive_gpu(double *Freph, double *yh, int n, int d, double h,
-                             double *timeInfo);
-coord computeFrepulsive_GPU(coord *Freph, coord *yh, int n, int d, coord h,
+coord computeFrepulsive_gpu(coord *Frep, coord *y, int n, int d, double h,
+                            double *timeInfo);
+coord computeFrepulsive_GPU(coord *Freph, coord *yh, int n, int d, double h,
                             double *timeInfo);
 #endif
