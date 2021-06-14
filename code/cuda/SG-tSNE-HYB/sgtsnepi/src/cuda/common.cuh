@@ -1,23 +1,24 @@
-#ifndef COMMON
-#define COMMON
+#ifndef COMMON_CUH
+#define COMMON_CUH
 
+#include <cuda.h>
 #include <cuda_fp16.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cuda_runtime.h>
 #include <fstream>
 #include <iostream>
-#include <string.h>
-#include <cuda_runtime.h>
-#include <cuda.h>
 #include <stdint.h>
-#define CUDA_CALL(x)                                                           \
-  {                                                                            \
-    if ((x) != cudaSuccess) {                                                  \
-      printf("CUDA error at %s:%d\n", __FILE__, __LINE__);                     \
-      printf("  %s\n", cudaGetErrorString(cudaGetLastError()));                \
-      exit(EXIT_FAILURE);                                                      \
-    }                                                                          \
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define gpuErrchk(ans)                                                         \
+  { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line,
+                      bool abort = true) {
+  if (code != cudaSuccess) {
+    fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file,
+            line);
+    if (abort)
+      exit(code);
   }
-
-
+}
 #endif

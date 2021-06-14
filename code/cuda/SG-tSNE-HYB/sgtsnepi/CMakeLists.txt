@@ -59,10 +59,10 @@ set(SOURCES_CPU
 	./src/nuconv.cpp
 	./src/timers.cpp
 	./src/pq.cpp
-	./src/gradient_descendHYB.cpp 
+	./src/gradient_descendHYB.cpp
 	./src/qq.cpp
 	./src/demo_perplexity_equalization.cpp
-#	./csb/bandMat.cpp	
+#	./csb/bandMat.cpp
 #	./csb/bicsb.cpp
 #	./csb/matfileio.cpp
 #	./csb/csc.cpp
@@ -70,20 +70,20 @@ set(SOURCES_CPU
 #	./csb/bmsym.cpp
 #	./csb/csr_routines.cpp
 #	./csb/utils.cpp
-#	./csb/spvec.cpp	
+#	./csb/spvec.cpp
 #	./csb/bssb.cpp
 #	./csb/csbsym.cpp
 #	./csb/SSEspmv.cpp
 #	./csb/matfileio_all.cpp
-		
-)	
+
+)
 
 set(SOURCES_GPU
-        ./src/cuda/nuconvStreams.cu
-        ./src/cuda/Frep.cu             
-        ./src/cuda/non_periodic_convDStreams.cu
-        ./src/cuda/non_periodic_convFStreams.cu
-        ./src/cuda/griddingStreams.cu
+        ./src/cuda/nuconv.cu
+        ./src/cuda/Frep.cu
+        ./src/cuda/non_periodic_convD.cu
+        ./src/cuda/non_periodic_convF.cu
+        ./src/cuda/gridding.cu
 )
 
 

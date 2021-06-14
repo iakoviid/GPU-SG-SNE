@@ -25,17 +25,11 @@ __inline__ __host__ __device__ dataPoint l2(dataPoint d) {
 }
 
 #endif
-#define warpsize 32
-#define BlockSizeWarp1D 32
-#define BlockSizeWarp2D 32
-#define BlockSizeWarp2Dshared 128
 
-#define BlockSizeWarp3D 32
-#define Gridsz 128
 
 template <class dataPoint>
 void s2g(dataPoint *VGrid, dataPoint *y, dataPoint *VScat, uint32_t nGridDim,
-         uint32_t n, uint32_t d, uint32_t m, int *ib);
+         uint32_t n, uint32_t d, uint32_t m);
 template <class dataPoint>
 void g2s(dataPoint *PhiScat, dataPoint *PhiGrid, dataPoint *y,
          uint32_t nGridDim, uint32_t n, uint32_t d, uint32_t m);
@@ -67,22 +61,6 @@ __global__ void g2s3d(volatile dataPoint *__restrict__ Phi,
                       const dataPoint *const V, const dataPoint *const y,
                       const uint32_t ng, const uint32_t nPts,
                       const uint32_t nDim, const uint32_t nVec);
-template <class dataPoint>
-__global__ void s2g1drbwarp(dataPoint *V, dataPoint *y, dataPoint *q, int *ib,
-                            uint32_t ng, uint32_t nPts, uint32_t nDim,
-                            uint32_t nVec);
-template <class dataPoint>
-__global__ void s2g2drbwarpshared(dataPoint *V, dataPoint *y, dataPoint *q,
-                                  int *ib, uint32_t ng, uint32_t nPts,
-                                  uint32_t nDim, uint32_t nVec);
-template <class dataPoint>
-__global__ void s2g3drbwarp(dataPoint *V, dataPoint *y, dataPoint *q, int *ib,
-                            uint32_t ng, uint32_t nPts, uint32_t nDim,
-                            uint32_t nVec);
-template <class dataPoint>
-__global__ void s2g2drbwarp(dataPoint *V, dataPoint *y, dataPoint *q, int *ib,
-                            uint32_t ng, uint32_t nPts, uint32_t nDim,
-                            uint32_t nVec);
 
 template <class dataPoint, class sumType>
 __global__ void s2g2dmixed(sumType *__restrict__ V, const dataPoint *const y,

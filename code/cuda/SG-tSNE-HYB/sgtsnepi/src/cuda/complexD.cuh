@@ -42,5 +42,4 @@ __device__ __forceinline__ ComplexD my_cexpf(ComplexD z) {
   return res;
 }
 
-
 #endif

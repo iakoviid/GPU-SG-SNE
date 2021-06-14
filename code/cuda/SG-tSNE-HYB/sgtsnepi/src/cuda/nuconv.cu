@@ -1,13 +1,14 @@
 
 #include "nuconv.cuh"
-#include "timerstream.h"
+#include "gpu_timer.h"
 #include "utils_cuda.cuh"
-#include "complex.cuh"
+#include "complexF.cuh"
 #include "complexD.cuh"
 #include <fstream>
 #include <float.h>
 extern cudaStream_t streamRep;
-
+#define Blocks 64
+#define Threads 1024
 
 __global__ void Normalize(volatile float *__restrict__ y,
                           const uint32_t nPts, const uint32_t ng,
@@ -31,14 +32,14 @@ __global__ void Normalize(volatile double *__restrict__ y,
     for (register int dim = 0; dim < d; dim++) {
       y[TID + dim * nPts] /= maxy;
       if (y[TID + dim * nPts] == 1) {
-        y[TID + dim * nPts] = 1 - E_LIMITD;
+        y[TID + dim * nPts] = 1 - DBL_EPSILON;
       }
       y[TID + dim * nPts] *= (ng - 3);
     }
   }
 }
 template <class dataPoint,class Complext>
-void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat, int *ib, int n,
+void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat,  int n,
             int d, int m, int nGridDim, double *timeInfo, cufftHandle &plan,
             cufftHandle &plan_rhs, dataPoint *VGrid,
             dataPoint *PhiGrid, Complext *Kc,
@@ -54,13 +55,13 @@ void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat, int *ib, int n,
                      yVec_ptr + n * d, 0.0, thrust::maximum<dataPoint>());
  //cudaDeviceSynchronize();
 
- 
+
   dataPoint h =
       maxy / (nGridDim - 1 - std::numeric_limits<dataPoint>::epsilon());
 
   // ~~~~~~~~~~ scat2grid
 
-  Normalize<<<64, 1024, 0, streamRep>>>(y, n, nGridDim + 2, d, maxy);
+  Normalize<<<Blocks, Threads, 0, streamRep>>>(y, n, nGridDim + 2, d, maxy);
   //cudaDeviceSynchronize();
 
  timer.Stop(streamRep);
@@ -68,11 +69,11 @@ void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat, int *ib, int n,
   timeInfo[5] += timer.Elapsed()/1000.0;
 
   timer.Start(streamRep);
-  s2g(VGrid, y, VScat, nGridDim, n, d, m, ib);
+  s2g(VGrid, y, VScat, nGridDim, n, d, m);
 
   timer.Stop(streamRep);
   timeInfo[0] += timer.Elapsed()/1000.0;
- 
+
  //cudaDeviceSynchronize();
 
 
@@ -115,10 +116,10 @@ void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat, int *ib, int n,
  //cudaDeviceSynchronize();
   delete nGridDims;
 }
-template void nuconv(float *PhiScat, float *y, float *VScat, int *ib, int n,
+template void nuconv(float *PhiScat, float *y, float *VScat,  int n,
                      int d, int m, int nGridDim, double *timeInfo,
-                     cufftHandle &plan, cufftHandle &plan_rhs, float *VGrid, float *PhiGrid, Complex *Kc, Complex *Xc);
-template void nuconv(double *PhiScat, double *y, double *VScat, int *ib, int n,
+                     cufftHandle &plan, cufftHandle &plan_rhs, float *VGrid, float *PhiGrid, ComplexF *Kc, ComplexF *Xc);
+template void nuconv(double *PhiScat, double *y, double *VScat,  int n,
                      int d, int m, int nGridDim, double *timeInfo,
                      cufftHandle &plan, cufftHandle &plan_rhs, double *VGrid, double *PhiGrid,
                       ComplexD *Kc, ComplexD *Xc);

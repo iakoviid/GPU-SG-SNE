@@ -159,7 +159,7 @@ int main(int argc, char **argv) {
 */
 
   allKNNsearch(I, D, X, n, d, nn + 1);
-
+/*
  std::ofstream Dout;
  Dout.open("D1m.txt");
  std::ofstream Iout;
@@ -170,14 +170,10 @@ int main(int argc, char **argv) {
   }
  Dout.close();
  Iout.close();
-
+*/
   std::cout << "DONE" << std::endl;
 
   sparse_matrix P = perplexityEqualization(I, D, n, nn, u);
-    for(int i=0; i<91;i++){
-        std::cout<<P.row[i]<<" "<<P.col[i]<<" "<<P.val[i]<<"\n";
-
-        }
 
   free(D);
   free(I);
@@ -191,7 +187,7 @@ int main(int argc, char **argv) {
 
    std::ifstream yinf;
    double *yin=(double*)malloc(sizeof(coord)*params.d*params.n);
-  
+
    yinf.open("yin2m.txt");
 
    for(int i=0;i<n;i++){

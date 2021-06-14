@@ -19,11 +19,11 @@
 #include "timers.hpp"
 #include "qq.hpp"
 
-int papa=0;
+int iteration=0;
 coord errorArr[10]={0};
-int comErr=0;
+int comErr=1;
 double waittime=0;
-double computeFrepulsive_interpGPU(double *Freph, double *yh, int n,
+double computeFrepulsive_gpu(double *Freph, double *yh, int n,
                                    int d, double h, double *timeInfo);
 template <class dataPoint>
 void compute_dy(dataPoint       * const dy,
@@ -118,16 +118,10 @@ double compute_gradient(dataPoint *dy,
   start = tsne_start_timer();
 
   double zeta;
-  cilk_spawn computeFrepulsive_interpGPU(Frep, y, n, d, params.h, &timeInfo[1]);
+  cilk_spawn computeFrepulsive_gpu(Frep, y, n, d, params.h, &timeInfo[1]);
  // zeta=computeFrepulsive_interp(Frep, y, n,d, params.h,params.np,timeInfo);
 //zeta= computeFrepulsive_interpGPU(Frep, y, n, d, params.h, &timeInfo[1]);
 *timeFrep+= tsne_stop_timer("QQ", start);
-  
-	if(papa==0){
-		for(int i=0;i<8;i++){
-		std::cout<<timeInfo[i]<<"\n";
-		}
-	}
 
 
   // ------ Compute PQ (fattr)
@@ -140,24 +134,23 @@ double compute_gradient(dataPoint *dy,
 		timeInfo[0]+=time;
   } else
     *timeFattr += tsne_stop_timer("PQ", start);
-//  std::cout<<"papa";
   // ------ Compute QQ (frep)
   start = tsne_start_timer();
   cilk_sync;
 
   timeInfo[7]=tsne_stop_timer("QQ", start);
   waittime+=timeInfo[7];
-  
+
   // double zeta = computeFrepulsive_exact(Frep, y, n, d);
 
   // ----- Compute gradient (dY)
   compute_dy(dy, Fattr, Frep, n, d, params.alpha);
-                if(papa%100==0 && comErr==1){
-                 errorArr[papa/100]=computeErrorCPUrmse( Frep, y, n, d);
+                if(iteration%100==0 && comErr==1){
+                 errorArr[iteration/100]=computeErrorCPUrmse( Frep, y, n, d);
                 }
-                papa+=1;
+                iteration+=1;
 
-  
+
   // ----- Free-up memory
   free(Fattr);
   free(Frep);

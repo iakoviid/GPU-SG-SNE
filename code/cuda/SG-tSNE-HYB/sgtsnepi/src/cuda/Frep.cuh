@@ -13,7 +13,7 @@
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
 
-double computeFrepulsive_interpGPU(double *Freph, double *yh, int n,
-                                   int d, double h, double *timeInfo);
+double computeFrepulsive_gpu(double *Freph, double *yh, int n,
+                            int d, double h, double *timeInfo);
 
 #endif
