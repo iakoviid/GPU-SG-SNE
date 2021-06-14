@@ -1,4 +1,10 @@
+/*!
+  \file   nuconv.cu
+  \brief  Non-uniform convolution.
 
+  \author Iakovidis Ioannis
+  \date   2021-06-14
+*/
 #include "nuconv.cuh"
 #include "gpu_timer.h"
 #include "utils_cuda.cuh"
@@ -7,8 +13,8 @@
 #include <fstream>
 #include <float.h>
 extern cudaStream_t streamRep;
-#define Blocks 64
-#define Threads 1024
+extern int Blocks;
+extern int Threads;
 
 __global__ void Normalize(volatile float *__restrict__ y,
                           const uint32_t nPts, const uint32_t ng,
@@ -38,12 +44,11 @@ __global__ void Normalize(volatile double *__restrict__ y,
     }
   }
 }
-template <class dataPoint,class Complext>
+template <class dataPoint>
 void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat,  int n,
             int d, int m, int nGridDim, double *timeInfo, cufftHandle &plan,
             cufftHandle &plan_rhs, dataPoint *VGrid,
-            dataPoint *PhiGrid, Complext *Kc,
-            Complext *Xc) {
+            dataPoint *PhiGrid) {
   struct GpuTimer timer;
   int szV = pow(nGridDim + 2, d) * m;
   timer.Start(streamRep);
@@ -66,16 +71,15 @@ void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat,  int n,
 
  timer.Stop(streamRep);
 
-  timeInfo[5] += timer.Elapsed()/1000.0;
+  timeInfo[4] += timer.Elapsed()/1000.0;
 
   timer.Start(streamRep);
   s2g(VGrid, y, VScat, nGridDim, n, d, m);
 
   timer.Stop(streamRep);
-  timeInfo[0] += timer.Elapsed()/1000.0;
+  timeInfo[0] = timer.Elapsed()/1000.0;
 
  //cudaDeviceSynchronize();
-
 
 
  // ~~~~~~~~~~ grid2grid
@@ -89,17 +93,17 @@ void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat,  int n,
   switch (d) {
 
   case 1:
-    conv1dnopadcuda(PhiGrid, VGrid, h, nGridDims, m, d, plan, plan_rhs,Kc,Xc);
+    conv1dnopadcuda(PhiGrid, VGrid, h, nGridDims, m, d, plan, plan_rhs);
 
     break;
 
   case 2:
-    conv2dnopadcuda(PhiGrid, VGrid, h, nGridDims, m, d, plan, plan_rhs,Kc,Xc);
+    conv2dnopadcuda(PhiGrid, VGrid, h, nGridDims, m, d, plan, plan_rhs);
 
     break;
 
   case 3:
-    conv3dnopadcuda(PhiGrid, VGrid, h, nGridDims, m, d, plan, plan_rhs,Kc,Xc);
+    conv3dnopadcuda(PhiGrid, VGrid, h, nGridDims, m, d, plan, plan_rhs);
     break;
   }
 // cudaDeviceSynchronize();
@@ -118,8 +122,7 @@ void nuconv(dataPoint *PhiScat, dataPoint *y, dataPoint *VScat,  int n,
 }
 template void nuconv(float *PhiScat, float *y, float *VScat,  int n,
                      int d, int m, int nGridDim, double *timeInfo,
-                     cufftHandle &plan, cufftHandle &plan_rhs, float *VGrid, float *PhiGrid, ComplexF *Kc, ComplexF *Xc);
+                     cufftHandle &plan, cufftHandle &plan_rhs, float *VGrid, float *PhiGrid);
 template void nuconv(double *PhiScat, double *y, double *VScat,  int n,
                      int d, int m, int nGridDim, double *timeInfo,
-                     cufftHandle &plan, cufftHandle &plan_rhs, double *VGrid, double *PhiGrid,
-                      ComplexD *Kc, ComplexD *Xc);
+                     cufftHandle &plan, cufftHandle &plan_rhs, double *VGrid, double *PhiGrid);

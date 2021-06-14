@@ -19,7 +19,6 @@
 
 #include "gridding.cpp"
 #include "non_periodic_conv.cpp"
-#include <fstream>
 void nuconv( coord *PhiScat, coord *y, coord *VScat,
              uint32_t *ib, uint32_t *cb,
              int n, int d, int m, int np, int nGridDim,
@@ -90,27 +89,6 @@ void nuconv( coord *PhiScat, coord *y, coord *VScat,
     timeInfo[0] += tsne_stop_timer("S2G", start);
   else
     tsne_stop_timer("S2G", start);
-int papa=0;
-if(papa==1){ 
- std::ofstream pragp;
- pragp.open("PhiGrid.txt");
-for(int iVec=0;iVec<m;iVec++){
- for(int j=0;j<nGridDim+2;j++){
- for(int i=0;i<nGridDim+2;i++){
-        pragp<<VGrid[i+j*(nGridDim+2)+iVec*(nGridDim+2)*(nGridDim+2)] <<" ";
-
-  }
-   pragp<<"\n";
-
-}
-pragp<<"\n\n\n";
-}
- pragp.close();
-std::ofstream yout;
-yout.open("Vout.txt");
-for(int i=0;i<n;i++){yout<<VScat[i*3]<<" "<<VScat[i*3+1]<<" "<<VScat[i*3+2]<<"\n"; }
-yout.close();
-}
 
   // ~~~~~~~~~~ grid2grid
   coord *PhiGrid = static_cast<coord *> ( calloc( szV, sizeof(coord) ) );

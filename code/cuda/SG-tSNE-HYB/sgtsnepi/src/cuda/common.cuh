@@ -1,10 +1,16 @@
+/*!
+  \file   common.cuh
+  \brief  Common file of Headers.
+
+  \author Iakovidis Ioannis
+  \date   2021-06-14
+*/
 #ifndef COMMON_CUH
 #define COMMON_CUH
 
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
-#include <fstream>
 #include <iostream>
 #include <stdint.h>
 #include <stdio.h>

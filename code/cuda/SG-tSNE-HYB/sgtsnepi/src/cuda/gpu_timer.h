@@ -1,4 +1,10 @@
+/*!
+  \file   gpu_timer.h
+  \brief  Simple GPU timer.
 
+  \author Iakovidis Ioannis
+  \date   2021-06-14
+*/
 
 #ifndef GPU_TIMER_H__
 #define GPU_TIMER_H__

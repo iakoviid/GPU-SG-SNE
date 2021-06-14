@@ -1,11 +1,21 @@
+/*!
+  \file   Frep.cu
+  \brief  Implementation for the apprpoximation of the Repulsive term.
+
+  \author Iakovidis Ioannis
+  \date   2021-06-14
+*/
+#include "../types.hpp"
 #include "Frep.cuh"
 #include "complexD.cuh"
 #include "complexF.cuh"
 #include "gpu_timer.h"
+#include "gridding.cuh"
 #define N_GRID_SIZE 137
-#define Blocks 64
-#define Threads 1024
+int Blocks=64;
+int Threads=1024;
 cudaStream_t streamRep = 0;
+int initialization=0;
 template <class dataPoint>
 __global__ void ComputeChargesKernel(volatile dataPoint *__restrict__ VScat,
                                      const dataPoint *const y, const int n,
@@ -80,8 +90,7 @@ dataPoint zetaAndForce(dataPoint *Ft_d, dataPoint *y_d, int n, int d,
   return z;
 }
 
-
-int getBestGridSize1(int nGrid) {
+int getGridSize(int nGrid) {
 
   // list of FFT sizes that work "fast" with FFTW
   int listGridSize[N_GRID_SIZE] = {
@@ -104,85 +113,142 @@ int getBestGridSize1(int nGrid) {
   return listGridSize[N_GRID_SIZE - 1] - 2;
 }
 
-double computeFrepulsive_gpu(double *Freph, double *yh, int n, int d, double h,
-                             double *timeInfo) {
+void initializeLaunchParameters(int* GridSize,int* BlockSize,int d){
 
+
+    switch (d) {
+    case 1: {
+    cudaOccupancyMaxPotentialBlockSize( GridSize, BlockSize,s2g1d<coord,coord>, 0, 0);
+    break;}
+    case 2: {
+    cudaOccupancyMaxPotentialBlockSize( GridSize, BlockSize,s2g2d<coord,coord>, 0, 0);
+    break;}
+    case 3: {
+    cudaOccupancyMaxPotentialBlockSize( GridSize, BlockSize,s2g3d<coord,coord>, 0, 0);
+    break;}
+    }
+
+    int deviceCount = 0;
+    cudaGetDeviceCount(&deviceCount);
+    int numSMs;
+    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
+    std::cout<<"BlockSize and minimum gridSize for potential maximal occupancy of the S2G kernel: "<<*GridSize<<" , "<<*BlockSize<<"\n";
+    std::cout<<"Number of SMs: "<<numSMs<<"\n";
+
+
+
+}
+coord computeFrepulsive_GPU(coord *Freph, coord *yh, int n, int d, coord h,
+                            double *timeInfo) {
+
+  if(initialization==0){
+  initializeLaunchParameters(&Blocks,&Threads,d);
+  std::cout<<"Choosing GridSize= "<<Blocks<<" and BlockSize= "<<Threads<<"\n";
+  initialization=1;
+  }
   struct GpuTimer timer;
   timer.Start(streamRep);
 
-  double *y;
+  coord *y;
+  gpuErrchk(cudaMallocManaged(&y, (d)*n * sizeof(coord)));
+  gpuErrchk(cudaMemcpy(y, yh, n * d * sizeof(coord), cudaMemcpyHostToDevice));
+  coord *Frep;
+  gpuErrchk(cudaMallocManaged(&Frep, n * d * sizeof(coord)));
+
+    timer.Stop(streamRep);
+
+    timeInfo[4] = timer.Elapsed() / 1000.0;
+
+  coord zeta = computeFrepulsive_gpu(Frep, y, n, d, h, timeInfo);
+  timer.Start(streamRep);
+
+  gpuErrchk(
+      cudaMemcpy(Freph, Frep, n * d * sizeof(coord), cudaMemcpyDeviceToHost));
+  gpuErrchk(cudaFree(Frep));
+  gpuErrchk(cudaFree(y));
+  timer.Stop(streamRep);
+
+  timeInfo[4] += timer.Elapsed() / 1000.0;
+  return zeta;
+}
+coord computeFrepulsive_gpu(coord *Frep, coord *y, int n, int d, coord h,
+                            double *timeInfo) {
+
+  //timeInfo=[S2Gtime G2Gtime G2Gtime Phi2Forcetime PreparatoryOrOtherProctime]
+  struct GpuTimer timer;
+  timer.Start(streamRep);
+
   int m = d + 1;
-  int nVec = m;
-  double miny[4];
-  for (int i = 0; i < 4; i++)
-    miny[i] = std::numeric_limits<double>::infinity();
-
-  for (int i = 0; i < n; i++)
-    for (int j = 0; j < d; j++)
-      miny[j] = miny[j] > yh[i * d + j] ? yh[i * d + j] : miny[j];
-
-  gpuErrchk(cudaMallocManaged(&y, (d)*n * sizeof(double)));
-  gpuErrchk(cudaMemcpy(y, yh, n * d * sizeof(double), cudaMemcpyHostToDevice));
 
   // ~~~~~~~~~~ move data to (0,0,...)
-
-  // double miny[4];
-  thrust::device_ptr<double> yVec_ptr(y);
+  coord miny[4];
+  thrust::device_ptr<coord> yVec_ptr(y);
 
   for (int j = 0; j < d; j++) {
+    miny[j] = thrust::reduce(yVec_ptr + j * n, yVec_ptr + n * (j + 1),
+                             std::numeric_limits<coord>::max(),
+                             thrust::minimum<coord>());
     addScalarToCoord<<<Blocks, Threads>>>(y, -miny[j], n, j, d);
   }
 
-  double maxy = thrust::reduce(yVec_ptr, yVec_ptr + n * d, 0.0,
-                               thrust::maximum<double>());
+  // Find interpolation grid size
+  coord maxy =
+      thrust::reduce(yVec_ptr, yVec_ptr + n * d, 0.0, thrust::maximum<coord>());
 
   int ng = std::max((int)std::ceil(maxy / h), 14);
 
-  int n1 = getBestGridSize1(ng);
+  int n1 = getGridSize(ng);
   int nGrid = n1;
-  double *yt;
-  gpuErrchk(cudaMallocManaged(&yt, (d)*n * sizeof(double)));
-  double *VScat;
-  gpuErrchk(cudaMallocManaged(&VScat, (d + 1) * n * sizeof(double)));
-  double *PhiScat;
-  gpuErrchk(cudaMallocManaged(&PhiScat, (d + 1) * n * sizeof(double)));
+
+  //Memory allocations
+  coord *yt;
+  gpuErrchk(cudaMallocManaged(&yt, (d)*n * sizeof(coord)));
+  coord *VScat;
+  gpuErrchk(cudaMallocManaged(&VScat, (d + 1) * n * sizeof(coord)));
+  coord *PhiScat;
+  gpuErrchk(cudaMallocManaged(&PhiScat, (d + 1) * n * sizeof(coord)));
   int szV = pow(n1 + 2, d) * m;
-  double *VGrid;
-  gpuErrchk(cudaMallocManaged(&VGrid, szV * sizeof(double)));
-  double *PhiGrid;
-  gpuErrchk(cudaMallocManaged(&PhiGrid, szV * sizeof(double)));
-  ComplexD *Kc, *Xc;
-  gpuErrchk(cudaMallocManaged(&Kc, szV * sizeof(ComplexD)));
-  gpuErrchk(cudaMallocManaged(&Xc, nVec * szV * sizeof(ComplexD)));
-  thrust::device_vector<double> zetaVec(n);
-  double *Frep;
-  gpuErrchk(cudaMallocManaged(&Frep, n * d * sizeof(double)));
+  coord *VGrid;
+  gpuErrchk(cudaMallocManaged(&VGrid, szV * sizeof(coord)));
+  coord *PhiGrid;
+  gpuErrchk(cudaMallocManaged(&PhiGrid, szV * sizeof(coord)));
 
-  initKernel<<<Blocks, Threads>>>(VGrid, (double)0, szV);
-  initKernel<<<Blocks, Threads>>>(PhiGrid, (double)0, szV);
+  thrust::device_vector<coord> zetaVec(n);
 
+  initKernel<<<Blocks, Threads>>>(VGrid, (coord)0, szV);
+  initKernel<<<Blocks, Threads>>>(PhiGrid, (coord)0, szV);
+
+  // Initializing  cufft plans
   cufftHandle plan, plan_rhs;
 
   int n2 = n1 + 2;
+  cufftType type;
+  if (sizeof(coord) == 4) {
+    type = CUFFT_C2C;
+
+  } else if (sizeof(coord) == 8) {
+    type = CUFFT_Z2Z;
+  }
+
   switch (d) {
   case 1: {
     int ng[1] = {(int)n2};
-    cufftPlan1d(&plan, n2, CUFFT_Z2Z, 1);
-    cufftPlanMany(&plan_rhs, 1, ng, NULL, 1, n2, NULL, 1, n2, CUFFT_Z2Z, d + 1);
+    cufftPlan1d(&plan, n2, type, 1);
+    cufftPlanMany(&plan_rhs, 1, ng, NULL, 1, n2, NULL, 1, n2, type, d + 1);
     break;
   }
   case 2: {
     int ng[2] = {(int)n2, (int)n2};
-    cufftPlanMany(&plan, 2, ng, NULL, 1, 0, NULL, 1, 0, CUFFT_Z2Z, 1);
-    cufftPlanMany(&plan_rhs, 2, ng, NULL, 1, n2 * n2, NULL, 1, n2 * n2,
-                  CUFFT_Z2Z, d + 1);
+    cufftPlanMany(&plan, 2, ng, NULL, 1, 0, NULL, 1, 0, type, 1);
+    cufftPlanMany(&plan_rhs, 2, ng, NULL, 1, n2 * n2, NULL, 1, n2 * n2, type,
+                  d + 1);
     break;
   }
   case 3: {
     int ng[3] = {(int)n2, (int)n2, (int)n2};
-    cufftPlanMany(&plan, 3, ng, NULL, 1, 0, NULL, 1, 0, CUFFT_Z2Z, 1);
+    cufftPlanMany(&plan, 3, ng, NULL, 1, 0, NULL, 1, 0, type, 1);
     cufftPlanMany(&plan_rhs, 3, ng, NULL, 1, n2 * n2 * n2, NULL, 1,
-                  n2 * n2 * n2, CUFFT_Z2Z, d + 1);
+                  n2 * n2 * n2, type, d + 1);
     break;
   }
   }
@@ -193,22 +259,16 @@ double computeFrepulsive_gpu(double *Freph, double *yh, int n, int d, double h,
 
   timer.Stop(streamRep);
 
-  timeInfo[5] = timer.Elapsed() / 1000.0;
-  timer.Start(streamRep);
-  nuconv(PhiScat, yt, VScat, n, d, d + 1, nGrid, timeInfo, plan, plan_rhs,
-         VGrid, PhiGrid, Kc, Xc);
+  timeInfo[4] += timer.Elapsed() / 1000.0;
 
-  // cudaDeviceSynchronize();
+  nuconv(PhiScat, yt, VScat, n, d, m, nGrid, timeInfo, plan, plan_rhs, VGrid,
+         PhiGrid);
 
-  timer.Stop(streamRep);
-  timeInfo[4] = timer.Elapsed() / 1000;
   timer.Start(streamRep);
-  double zeta = zetaAndForce(Frep, y, n, d, PhiScat, zetaVec);
+  coord zeta = zetaAndForce(Frep, y, n, d, PhiScat, zetaVec);
   timer.Stop(streamRep);
   timeInfo[3] = timer.Elapsed() / 1000.0;
 
-  gpuErrchk(
-      cudaMemcpy(Freph, Frep, n * d * sizeof(double), cudaMemcpyDeviceToHost));
   cufftDestroy(plan);
   cufftDestroy(plan_rhs);
   gpuErrchk(cudaFree(PhiGrid));
@@ -216,8 +276,6 @@ double computeFrepulsive_gpu(double *Freph, double *yh, int n, int d, double h,
   gpuErrchk(cudaFree(yt));
   gpuErrchk(cudaFree(VScat));
   gpuErrchk(cudaFree(PhiScat));
-  gpuErrchk(cudaFree(Kc));
-  gpuErrchk(cudaFree(Xc));
-  gpuErrchk(cudaFree(Frep));
+
   return zeta;
 }

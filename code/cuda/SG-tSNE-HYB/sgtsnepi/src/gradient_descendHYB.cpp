@@ -21,9 +21,9 @@
 
 int iteration=0;
 coord errorArr[10]={0};
-int comErr=1;
+int comErr=0;
 double waittime=0;
-double computeFrepulsive_gpu(double *Freph, double *yh, int n,
+double computeFrepulsive_GPU(double *Freph, double *yh, int n,
                                    int d, double h, double *timeInfo);
 template <class dataPoint>
 void compute_dy(dataPoint       * const dy,
@@ -118,7 +118,7 @@ double compute_gradient(dataPoint *dy,
   start = tsne_start_timer();
 
   double zeta;
-  cilk_spawn computeFrepulsive_gpu(Frep, y, n, d, params.h, &timeInfo[1]);
+  cilk_spawn computeFrepulsive_GPU(Frep, y, n, d, params.h, &timeInfo[1]);
  // zeta=computeFrepulsive_interp(Frep, y, n,d, params.h,params.np,timeInfo);
 //zeta= computeFrepulsive_interpGPU(Frep, y, n, d, params.h, &timeInfo[1]);
 *timeFrep+= tsne_stop_timer("QQ", start);

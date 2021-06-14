@@ -1,3 +1,10 @@
+/*!
+  \file   complexF.cuh
+  \brief  Complex number Operations single precision.
+
+  \author Iakovidis Ioannis
+  \date   2021-06-14
+*/
 #ifndef COMPLEXF_CUH
 #define COMPLEXF_CUH
 #include "common.cuh"

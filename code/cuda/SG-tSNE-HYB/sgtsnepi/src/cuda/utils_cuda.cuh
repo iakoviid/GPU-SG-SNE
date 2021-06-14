@@ -1,3 +1,10 @@
+/*!
+  \file   utils_cuda.cuh
+  \brief  Cufa utils.
+
+  \author Iakovidis Ioannis
+  \date   2021-06-14
+*/
 #ifndef UTILS_CUDA_CUH
 #define UTILS_CUDA_CUH
 
@@ -66,5 +73,13 @@ template <class T> __device__ T warp_reduce(T val) {
     val += __shfl_down_sync(FULL_WARP_MASK, val, offset);
   }
   return val;
+}
+
+template <class dataType1, class dataType2>
+__global__ void copymixed(dataType1 *a, dataType2 *b, int n) {
+  for (register int TID = threadIdx.x + blockIdx.x * blockDim.x; TID < n;
+       TID += gridDim.x * blockDim.x) {
+    a[TID] = (dataType1)b[TID];
+  }
 }
 #endif
