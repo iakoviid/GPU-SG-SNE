@@ -19,7 +19,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 #-------------------------------------------------------------------------------
 SET(CUDA_SEPARABLE_COMPILATION ON)
 find_package(CUDA REQUIRED)
-SET(CUDA_HOST_COMPILER ${CXX})
+SET(CUDA_HOST_COMPILER  g++-7)
 SET(CUDA_PROPAGATE_HOST_FLAGS OFF)
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};
                     -O3
@@ -89,32 +89,28 @@ link_directories(
   ${CUDA_LIB_PATH}
 )
 
-set(SOURCES_PERPLEXITY_CONST_INIT2
+set(SG_tSNE_CUDA_SOURCES
 
-    src/testing_modules/demo_perplexity2.cu
-    src/perplexity_search0.cu
+    src/testing_modules/demo_perplexity.cu
+    src/perplexity_search.cu
 
-    src/sgtsne0.cu
-    src/gradient_descendStreams.cu
+    src/sgtsne.cu
+    src/gradient_descend.cu
     src/utils.cu
-    src/sparse_reorder.cu
-    src/pqStreams.cu
+    src/pq.cu
     src/matrix_converter.cpp
-    src/FrepNoRelocStreams.cu
+    src/Frep.cu
     src/graph_rescaling.cu
-    src/griddingStreams.cu
-    src/non_periodic_convFStreams.cu
-    src/non_periodic_convDStreams.cu
-    src/nuconvStreams.cu
-    src/sparsematrix.cpp
-
-
+    src/gridding.cu
+    src/non_periodic_convF.cu
+    src/non_periodic_convD.cu
+    src/nuconv.cu
 )
-cuda_add_executable(demo_perplexity_init_faiss
+cuda_add_executable(sg_tsne_cuda
     ${faiss_gpu_headers} ${faiss_gpu_cpp} ${faiss_gpu_cuh} ${faiss_gpu_cu}
-    ${SOURCES_PERPLEXITY_CONST_INIT2}
+    ${SG_tSNE_CUDA_SOURCES}
 )
-target_link_libraries(demo_perplexity_init_faiss
+target_link_libraries(sg_tsne_cuda
             ${CUDA_LIBRARIES}
             ${CUDA_CUFFT_LIBRARIES}
             ${CUDA_cusparse_LIBRARY}
@@ -127,30 +123,26 @@ target_link_libraries(demo_perplexity_init_faiss
 
 )
 #------------------------------------------------------
-set(SOURCES_PERPLEXITY_NON_CONST_INIT
+set(SG_tSNE_CUDA_VARGRID_SOURCES
 
-    src/testing_modules/demo_perplexity2.cu
-    src/perplexity_search0.cu
+    src/testing_modules/demo_perplexity.cu
+    src/perplexity_search.cu
 
-    src/sgtsne0.cu
-    src/gradient_descend.cu
+    src/sgtsne.cu
+    src/gradient_descend_varGrid.cu
     src/utils.cu
-    src/sparse_reorder.cu
-    src/pqStreams.cu
+    src/pq.cu
     src/matrix_converter.cpp
-    src/FrepNoReloc.cu
+    src/Frep_varGrid.cu
     src/graph_rescaling.cu
-    src/griddingStreams.cu
-    src/non_periodic_convFStreams.cu
-    src/non_periodic_convDStreams.cu
-    src/nuconvStreams.cu
-    src/sparsematrix.cpp
-
-
+    src/gridding.cu
+    src/non_periodic_convF.cu
+    src/non_periodic_convD.cu
+    src/nuconv.cu
 )
 cuda_add_executable(demo_perplexity_nonconst
     ${faiss_gpu_headers} ${faiss_gpu_cpp} ${faiss_gpu_cuh} ${faiss_gpu_cu}
-    ${SOURCES_PERPLEXITY_NON_CONST_INIT}
+    ${SG_tSNE_CUDA_VARGRID_SOURCES}
 )
 target_link_libraries(demo_perplexity_nonconst
             ${CUDA_LIBRARIES}

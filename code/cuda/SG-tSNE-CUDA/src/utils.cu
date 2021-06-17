@@ -5,7 +5,7 @@
 template <class dataPoint>
 void appendProgressGPU(dataPoint *yd,int n,int d,const char* name){
  dataPoint *y=(dataPoint*)malloc(n*d*sizeof(dataPoint));
- CUDA_CALL(cudaMemcpy(y, yd, n * d * sizeof(dataPoint),cudaMemcpyDeviceToHost));
+ gpuErrchk(cudaMemcpy(y, yd, n * d * sizeof(dataPoint),cudaMemcpyDeviceToHost));
   std::ofstream fout;  // Create Object of Ofstream
   std::ifstream fin;
   fin.open(name);
@@ -234,26 +234,18 @@ dataPoint * readXfromMTX( const char *filename, int *n, int *d ){
   if(Npts>0){n[0]=Npts;}
   // allocate space for COO format
   X = static_cast<dataPoint *>( malloc( n[0] * d[0] * sizeof(dataPoint)) );
-//  std::ofstream fout;
-//  fout.open("cifar.mtx");
+
 
   // read the COO data
   for (int l = 0; l < n[0]; l++){
   for (int j = 0; j < d[0]; j++)
 {
    fin >> X[l*d[0] + j];
-  // fout<<X[l*d[0]+j]<<" ";
 
-  // char word;
-   //if(j<d[0]-1 ){   fin>> word;}
-
-if(l<2 && j<10){
-  std::cout<<X[l*d[0]+j]<<"\n";
-//	std::cout<<word<<"\n";
 }
 
-}// fout<<"\n";
 }
+
   // close connection to file
   fin.close();
   // fout.close();

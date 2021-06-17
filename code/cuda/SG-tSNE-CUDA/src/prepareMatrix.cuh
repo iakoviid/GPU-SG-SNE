@@ -7,10 +7,6 @@
 #include "utils_cuda.cuh"
 
 template <typename data_type>
-sparse_matrix<data_type> *PrepareSparseMatrix(sparse_matrix<data_type> *P,
-                                              int *perm, int format,
-                                              const char *method, int bs);
-
 
 void Csr2Coo(sparse_matrix<float> *P);
 void Csr2Coo(sparse_matrix<float> **P);

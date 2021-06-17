@@ -3,16 +3,16 @@
 #define FREP_CUH
 #include "common.cuh"
 #include "nuconv.cuh"
-#include "relocateData.cuh"
 #include "utils.cuh"
 #include "utils_cuda.cuh"
-
+#include "complexF.cuh"
+#include "complexD.cuh"
 #include <thrust/device_vector.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
-
+#include "gpu_timer.h"
 template <class dataPoint, class Complext>
 dataPoint computeFrepulsive_interp(dataPoint *Frep, dataPoint *y, int n, int d,
                                    dataPoint h, double *timeInfo, int nGrid,

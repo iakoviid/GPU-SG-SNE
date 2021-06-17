@@ -8,21 +8,23 @@
 
 
 */
-#include "graph_rescaling.hpp"
+#include "graph_rescaling.cuh"
 #include "prepareMatrix.cu"
 #include "sgtsne.cuh"
-template <class dataPoint> dataPoint *generateRandomCoord(int n, int d) {
+#include <thrust/device_vector.h>
+#include <thrust/device_ptr.h>
+#include <fstream>
+template <class dataPoint>
+void free_sparse_matrixGPU(sparse_matrix<dataPoint> *P) {
 
-  dataPoint *y = (dataPoint *)malloc(n * d * sizeof(dataPoint));
-
-  for (int i = 0; i < n * d; i++)
-    y[i] = ((dataPoint)rand() / (RAND_MAX)) * .0001;
-
-  return y;
+  gpuErrchk(cudaFree(P->row));
+  gpuErrchk(cudaFree(P->col));
+  gpuErrchk(cudaFree(P->val));
 }
+
 template <class dataPoint>
 dataPoint *sgtsneCUDA(sparse_matrix<dataPoint> *P, tsneparams params,
-                      dataPoint *y_in, double **timeInfo) {
+                      dataPoint *y_in, double *timeInfo) {
   // ~~~~~~~~~~ unless h is specified, use default ones
   if (params.h <= 0)
     switch (params.d) {
@@ -37,13 +39,11 @@ dataPoint *sgtsneCUDA(sparse_matrix<dataPoint> *P, tsneparams params,
       break;
     }
 
-  // ~~~~~~~~~~ print input parameters
   printParams(params);
 
   // ~~~~~~~~~~ make sure input matrix is column stochastic
-  uint32_t nStoch = makeStochastic(*P);
-  std::cout << nStoch << " out of " << P->n << " nodes already stochastic"
-            << std::endl;
+//  uint32_t nStoch = makeStochasticGPU(P);
+ // std::cout << nStoch << " out of " << P->n << " nodes already stochastic" << std::endl;
 
   // ~~~~~~~~~~ prepare graph for SG-t-SNE
 
@@ -51,74 +51,81 @@ dataPoint *sgtsneCUDA(sparse_matrix<dataPoint> *P, tsneparams params,
   if (params.lambda == 1)
     std::cout << "Skipping λ rescaling..." << std::endl;
   else
-    lambdaRescaling(*P, (dataPoint)params.lambda, false, params.dropLeaf);
+    lambdaRescalingGPU(*P, params.lambda, false, params.dropLeaf);
 
   // ----- symmetrizing
-  symmetrizeMatrix(P);
+  cusparseHandle_t handle;
+  cusparseCreate(&handle);
+  sparse_matrix<dataPoint> *Pd =
+      (sparse_matrix<dataPoint> *)malloc(sizeof(sparse_matrix<dataPoint>));
+
+cudaDeviceSynchronize();
+  int* row;
+  Pd->nnz=SymmetrizeMatrix(handle, &(Pd->val),&(row),
+                   &(Pd->col), P->val, P->col, P->n, P->row,P->nnz);
+  Pd->n=P->n;
+  Pd->m=P->n;
+cudaDeviceSynchronize();
+
 
   // ----- normalize matrix (total sum is 1.0)
-  dataPoint sum_P = .0;
-  for (int i = 0; i < P->nnz; i++) {
-
-    sum_P += P->val[i];
-  }
-  for (int i = 0; i < P->nnz; i++) {
-    P->val[i] /= sum_P;
-  }
+//  dataPoint sum_P = thrust::reduce(Pd->val, Pd->val+Pd->nnz);
+ // ArrayScale<<<64, 1024>>>(Pd->val, 1 / sum_P, Pd->nnz);
 
   // ~~~~~~~~~~ extracting BSDB permutation
-  int *perm = static_cast<int *>(malloc(P->n * sizeof(int)));
-  sparse_matrix<dataPoint> *Pd =
-      PrepareSparseMatrix(P, perm, params.format, params.method, params.bs);
+  double elapsedTime;
+  struct timeval t1, t2;
 
+  gettimeofday(&t1, NULL);
+
+  if(params.format==2){
+  cudaMalloc((void **)&(Pd->row), sizeof(int) * (Pd->nnz));
+  Csr2Coo(Pd->nnz,Pd->n,row,Pd->col,Pd->row);
+  Pd->format=params.format;
+}
+  else if(params.format==3){
+    Pd->row=row;
+    PrepareHybrid(Pd);
+    Pd->format=params.format;
+    cudaFree(Pd->col);
+    cudaFree(Pd->val);
+
+  }
+  cudaFree(row);
+  gettimeofday(&t2, NULL);
+  elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;    // sec to ms
+  elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0; // us to ms
+  timeInfo[7*1000+1]=elapsedTime;
   std::cout << "nnz= "<< Pd->nnz << std::endl;
 
   // ~~~~~~~~~~ initial embedding coordinates
-
   dataPoint *y;
-  CUDA_CALL(cudaMallocManaged(&y, params.n * params.d * sizeof(dataPoint)));
+  gpuErrchk(cudaMallocManaged(&y, params.n * params.d * sizeof(dataPoint)));
 
   if (y_in == NULL) {
 
     // ----- Initialize Y
     dataPoint *y_rand = generateRandomGaussianCoord<dataPoint>(params.n, params.d);
-    // extractEmbeddingTextT(y_rand, params.n, params.d, "yin.txt");
-    CUDA_CALL(cudaMemcpy(y, y_rand, params.n * params.d * sizeof(dataPoint),
+    gpuErrchk(cudaMemcpy(y, y_rand, params.n * params.d * sizeof(dataPoint),
                          cudaMemcpyHostToDevice));
     free(y_rand);
 
   } else {
-    CUDA_CALL(cudaMemcpy(y, y_in, params.n * params.d * sizeof(dataPoint),
+    gpuErrchk(cudaMemcpy(y, y_in, params.n * params.d * sizeof(dataPoint),
                          cudaMemcpyHostToDevice));
   }
 
   // ~~~~~~~~~~ gradient descent
-  kl_minimization(y, params, *Pd);
+  kl_minimization(y, params, *Pd,timeInfo);
   dataPoint *y_return =
       static_cast<dataPoint *>(malloc(params.n * params.d * sizeof(dataPoint)));
 
-  CUDA_CALL(cudaMemcpy(y_return, y, params.n * params.d * sizeof(dataPoint),
+  gpuErrchk(cudaMemcpy(y_return, y, params.n * params.d * sizeof(dataPoint),
                        cudaMemcpyDeviceToHost));
 
-  // ~~~~~~~~~~ inverse permutation
-  /*
-  dataPoint *y_copy =
-      static_cast<dataPoint *>(malloc(params.n * params.d * sizeof(dataPoint)));
-
-  for (int i = 0; i < params.n; i++) {
-    for (int j = 0; j < params.d; j++) {
-      //y_return[perm[i] * params.d + j] = y_copy[i * params.d + j];
-      y_return[i * params.d + j]= y_copy[i * params.d + j];
-    }
-  }
-  */
-  // free(y_copy);
   // ~~~~~~~~~~ dellocate memory
   cudaFree(y);
-  free(perm);
   return y_return;
 }
 template float *sgtsneCUDA(sparse_matrix<float> *P, tsneparams params,
-                           float *y_in, double **timeInfo);
-template double *sgtsneCUDA(sparse_matrix<double> *P, tsneparams params,
-                           double *y_in, double **timeInfo);
+                           float *y_in, double *timeInfo);

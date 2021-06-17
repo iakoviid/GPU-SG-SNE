@@ -10,7 +10,7 @@
 #define GRAPH_RESCALING_CUH
 
 #include "types.hpp"
-#include "utils_gpu.cuh"
+#include "utils_cuda.cuh"
 #include <thrust/device_vector.h>
 #include <cusparse.h>
 #include "common.cuh"

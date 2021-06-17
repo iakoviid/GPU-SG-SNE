@@ -65,7 +65,6 @@ typedef struct {
   int np = 0;            //!< Number of CILK workers (processes)
   int format=2;
   int bs = 0;
-  char* method="metis";
   int ComputeError=-1;
   int ng=50;
   int sim=0;

@@ -6,7 +6,8 @@
 #include "common.cuh"
 #include "utils.cuh"
 #include "utils_cuda.cuh"
-#include "sparsematrix.hpp"
+#include <sys/time.h>
+
 #include "gradient_descend.cuh"
 
 //! Embed the sparse stochastic graph P

@@ -52,106 +52,6 @@ dataPoint computeFrepulsive_exact(dataPoint *frep, dataPoint *pointsX, int n,
   ArrayScale<<<Blocks, threads>>>(frep, 1 / z, n * d);
   return z;
 }
-
-template <class dataPoint>
-dataPoint computeFrepulsive_exactCPU(dataPoint * frep,dataPoint * pointsX,int N,int d){
-
-  dataPoint *zetaVec = (dataPoint *) calloc( N, sizeof( dataPoint ) );
-
-  for (int i = 0; i < N; i++) {
-    dataPoint Yi[10] = {0};
-    for (int dd = 0; dd < d; dd++ )
-      Yi[dd] = pointsX[i + dd*N];
-
-    dataPoint Yj[10] = {0};
-
-    for(int j = 0; j < N; j++) {
-
-      if(i != j) {
-
-        dataPoint dist = 0.0;
-        for (int dd = 0; dd < d; dd++ ){
-           Yj[dd] = pointsX[j + dd*N];
-           dist += (Yj[dd] - Yi[dd]) * (Yj[dd] - Yi[dd]);
-        }
-
-        for (int dd = 0; dd < d; dd++ ){
-	  frep[i + dd*N] += (Yi[dd] - Yj[dd]) /
-	       ( (1 + dist)*(1 + dist) );
-	}
-
-        zetaVec[i] += 1.0 / (1.0 + dist);
-
-      }
-    }
-  }
-dataPoint zeta=0;
-for(int i=0;i<N;i++){zeta+=zetaVec[i];}
-
-  for (int i = 0; i < N; i++) {
-for(int j=0;j<d;j++){
-    frep[i + j*N] /= zeta;
-}
-  }
-
-  free( zetaVec );
-
-  return zeta;
-
-}
-
-template <class dataPoint>
-dataPoint computeErrorCPU(dataPoint* frep,dataPoint* y,int n,int d){
-        dataPoint* freph=(dataPoint *)malloc(sizeof(dataPoint)*n*d);
-        cudaMemcpy(freph,frep,n*d*sizeof(dataPoint),cudaMemcpyDeviceToHost);
-        dataPoint* yh=(dataPoint *)malloc(sizeof(dataPoint)*n*d);
-        cudaMemcpy(yh,y,n*d*sizeof(dataPoint),cudaMemcpyDeviceToHost);
-        dataPoint* frept=(dataPoint *)calloc(n*d,sizeof(dataPoint));
-        computeFrepulsive_exactCPU(frept,yh,n,d);
-         dataPoint maxErr = 0;
-         int pos=0;
-         for (int i = 0; i<n*d; i++)
-         {
-           if(maxErr< abs( freph[i] - frept[i] )){
-             pos=i;
-             maxErr=abs( freph[i] - frept[i] );
-           }
-       }
-       std::cout<<"MaxError= "<<maxErr<<" pos= "<<pos<<" freph= "<<freph[pos]<<" frept="<<frept[pos]<< "\n";
-       std::cout<<"y "<<yh[pos]<<" , "<<yh[pos+n]<<"\n";
-       std::cout<<"y "<<yh[0]<<" , "<<yh[n]<<"\n";
-       std::cout<<"Frept= "<<frept[0]<<" , "<<frept[0+n]<<"\n";
-       std::cout<<"Freph= "<<freph[0]<<" , "<<freph[0+n]<<"\n";
-
-        free(freph);
-        free(frept);
-        free(yh);
-return maxErr;
-}
-
-
-template <class dataPoint>
-dataPoint computeErrorCPUrmse(dataPoint* frep,dataPoint* y,int n,int d){
-        dataPoint* freph=(dataPoint *)malloc(sizeof(dataPoint)*n*d);
-        cudaMemcpy(freph,frep,n*d*sizeof(dataPoint),cudaMemcpyDeviceToHost);
-        dataPoint* yh=(dataPoint *)malloc(sizeof(dataPoint)*n*d);
-        cudaMemcpy(yh,y,n*d*sizeof(dataPoint),cudaMemcpyDeviceToHost);
-        dataPoint* frept=(dataPoint *)calloc(n*d,sizeof(dataPoint));
-        computeFrepulsive_exactCPU(frept,yh,n,d);
-         dataPoint errordiff = 0;
-         dataPoint norm = 0;
-        for (int i = 0; i<n*d; i++)
-         {
-           errordiff+=(frept[i]-freph[i])*(frept[i]-freph[i]);
-           norm+=frept[i]*frept[i];
-         }
-         dataPoint Err=std::sqrt(errordiff)/std::sqrt(norm);
-        std::cout<<"Err= "<<Err<<"\n";
-        free(freph);
-        free(frept);
-        free(yh);
-return Err;
-}
 template <class dataPoint>
 __global__ void distance(dataPoint* x,dataPoint *y,int n, int d){
 
@@ -192,10 +92,8 @@ dataPoint computeError(dataPoint *frep, dataPoint *y, int n, int d) {
   dataPoint error = thrust::reduce(frep_exact.begin(), frep_exact.begin()+n,0.0);
   dataPoint norm =thrust::reduce(normas.begin(), normas.begin()+n,0.0);
   error=std::sqrt(error)/std::sqrt(norm);
-  
+
 std::cout<<"Exit_Compute_Error "<<error <<"\n";
   return error;
 
 }
-
-     

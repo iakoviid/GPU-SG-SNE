@@ -1,5 +1,6 @@
 extern cudaStream_t streamAttr;
-
+extern int Blocks;
+extern int Threads;
 template <typename data_type, int d>
 __global__ void
 ell_spmv_kernel(const unsigned int n, const unsigned int elements_in_rows,
@@ -12,7 +13,10 @@ ell_spmv_kernel(const unsigned int n, const unsigned int elements_in_rows,
   register data_type dx, dy, dz;
   register data_type value,dist;
 
-  if (row < n) {
+//  if (row < n) {
+    for (row = blockIdx.x * blockDim.x + threadIdx.x; row < n;
+     row += blockDim.x * gridDim.x)  {
+
     sum1 = 0;
     sum2 = 0;
     sum3 = 0;
@@ -117,21 +121,17 @@ void gpu_hybrid_spmv(int elements_in_rows, int coo_size, data_type *Y,
 
   /// ELL Part
   {
-    dim3 block_size = dim3(512);
-    dim3 grid_size{};
-
-    grid_size.x = (rows_count + block_size.x - 1) / block_size.x;
     switch (d) {
     case 1:
-      ell_spmv_kernel<data_type, 1><<<grid_size, block_size, 0, streamAttr>>>(
+      ell_spmv_kernel<data_type, 1><<<Blocks, Threads, 0, streamAttr>>>(
           rows_count, elements_in_rows, ell_cols, ell_data, Y, F);
       break;
     case 2:
-      ell_spmv_kernel<data_type, 2><<<grid_size, block_size, 0, streamAttr>>>(
+      ell_spmv_kernel<data_type, 2><<<Blocks, Threads, 0, streamAttr>>>(
           rows_count, elements_in_rows, ell_cols, ell_data, Y, F);
       break;
     case 3:
-      ell_spmv_kernel<data_type, 3><<<grid_size, block_size, 0, streamAttr>>>(
+      ell_spmv_kernel<data_type, 3><<<Blocks, Threads, 0, streamAttr>>>(
           rows_count, elements_in_rows, ell_cols, ell_data, Y, F);
       break;
     }
@@ -139,23 +139,19 @@ void gpu_hybrid_spmv(int elements_in_rows, int coo_size, data_type *Y,
 
   /// COO Part
   {
-    dim3 block_size = dim3(512);
-    dim3 grid_size{};
-
     const int n_elements = coo_size;
-    grid_size.x = (n_elements + block_size.x - 1) / block_size.x;
 
     switch (d) {
     case 1:
-      coo_spmv_kernel<data_type, 1><<<grid_size, block_size, 0, streamAttr>>>(
+      coo_spmv_kernel<data_type, 1><<<Blocks, Threads, 0, streamAttr>>>(
           n_elements, coo_col_ids, coo_row_ids, coo_data, Y, F, rows_count);
       break;
     case 2:
-      coo_spmv_kernel<data_type, 2><<<grid_size, block_size, 0, streamAttr>>>(
+      coo_spmv_kernel<data_type, 2><<<Blocks, Threads, 0, streamAttr>>>(
           n_elements, coo_col_ids, coo_row_ids, coo_data, Y, F, rows_count);
       break;
     case 3:
-      coo_spmv_kernel<data_type, 3><<<grid_size, block_size, 0, streamAttr>>>(
+      coo_spmv_kernel<data_type, 3><<<Blocks, Threads, 0, streamAttr>>>(
           n_elements, coo_col_ids, coo_row_ids, coo_data, Y, F, rows_count);
       break;
     }

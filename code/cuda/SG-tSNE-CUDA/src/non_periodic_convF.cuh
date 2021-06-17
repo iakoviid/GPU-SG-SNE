@@ -1,7 +1,7 @@
 #ifndef NUFFT_CUH
 #define NUFFT_CUH
 #include "common.cuh"
-#include "complex.cuh"
+#include "complexF.cuh"
 #include <cufft.h>
 #include <cufftXt.h>
 
@@ -23,16 +23,16 @@ __inline__ __device__ __host__ float kernel3d(float hsq, float i, float j,
 
 void conv1dnopadcuda(float *PhiGrid, float *VGrid, float h,
                      uint32_t *const nGridDims, uint32_t nVec, int nDim,
-                     cufftHandle &plan, cufftHandle &plan_rhs, Complex *Kc,
-                     Complex *Xc);
+                     cufftHandle &plan, cufftHandle &plan_rhs, ComplexF *Kc,
+                     ComplexF *Xc);
 void conv2dnopadcuda(float *const PhiGrid, const float *const VGrid,
                      const float h, uint32_t *const nGridDims,
                      const uint32_t nVec, const uint32_t nDim,
-                     cufftHandle &plan, cufftHandle &plan_rhs, Complex *Kc,
-                     Complex *Xc);
+                     cufftHandle &plan, cufftHandle &plan_rhs, ComplexF *Kc,
+                     ComplexF *Xc);
 void conv3dnopadcuda(float *const PhiGrid, const float *const VGrid,
                      const float h, uint32_t *const nGridDims,
                      const uint32_t nVec, const uint32_t nDim,
-                     cufftHandle &plan, cufftHandle &plan_rhs, Complex *Kc,
-                     Complex *Xc);
+                     cufftHandle &plan, cufftHandle &plan_rhs, ComplexF *Kc,
+                     ComplexF *Xc);
 #endif

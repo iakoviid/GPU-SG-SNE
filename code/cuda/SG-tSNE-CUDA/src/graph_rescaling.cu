@@ -144,28 +144,28 @@ __global__ void makeStochasticKernel(matval *val, matidx *row, uint32_t n,
 uint32_t makeStochasticGPU(coord *val, int *row, int n) {
 
   uint32_t *stoch;
-  CUDA_CALL(cudaMallocManaged(&stoch, n * sizeof(uint32_t)));
+  gpuErrchk(cudaMallocManaged(&stoch, n * sizeof(uint32_t)));
 
   makeStochasticKernel<<<64, N_THREADS>>>(val, row, n, stoch);
   cudaDeviceSynchronize();
 
   uint32_t nStoch = thrust::reduce(stoch, stoch + n);
 
-  CUDA_CALL(cudaFree(stoch));
+  gpuErrchk(cudaFree(stoch));
   return nStoch;
 }
 
 uint32_t makeStochasticGPU(sparse_matrix<matval> *P) {
 
   uint32_t *stoch;
-  CUDA_CALL(cudaMallocManaged(&stoch, P->n * sizeof(uint32_t)));
+  gpuErrchk(cudaMallocManaged(&stoch, P->n * sizeof(uint32_t)));
 
   makeStochasticKernel<<<64, 512>>>(P->val, P->row, P->n, stoch);
   cudaDeviceSynchronize();
 
   uint32_t nStoch = thrust::reduce(stoch, stoch + P->n);
 
-  CUDA_CALL(cudaFree(stoch));
+  gpuErrchk(cudaFree(stoch));
   return nStoch;
 }
 /* (P+P^T)/2*/
@@ -211,11 +211,11 @@ sparse_matrix<matval>* symmetrizeMatrixGPU(sparse_matrix<matval> *A, cusparseHan
   A->val = csr_values_a_sorted;
 
   coord *d_csrValB;
-  CUDA_CALL(cudaMalloc(&d_csrValB, A->nnz * sizeof(coord)));
+  gpuErrchk(cudaMalloc(&d_csrValB, A->nnz * sizeof(coord)));
   int *d_csrRowPtrB;
-  CUDA_CALL(cudaMalloc(&d_csrRowPtrB, (A->m + 1) * sizeof(int)));
+  gpuErrchk(cudaMalloc(&d_csrRowPtrB, (A->m + 1) * sizeof(int)));
   int *d_csrColIndB;
-  CUDA_CALL(cudaMalloc(&d_csrColIndB, A->nnz * sizeof(int)));
+  gpuErrchk(cudaMalloc(&d_csrColIndB, A->nnz * sizeof(int)));
 
   cusparseScsr2csc(handle, A->m, A->n, A->nnz, A->val, A->row, A->col,
                    d_csrValB, d_csrColIndB, d_csrRowPtrB,
@@ -228,7 +228,7 @@ sparse_matrix<matval>* symmetrizeMatrixGPU(sparse_matrix<matval> *A, cusparseHan
   // --- nnzTotalDevHostPtr points to host memory
   int *nnzTotalDevHostPtr = &nnz3;
   cusparseSetPointerMode(handle, CUSPARSE_POINTER_MODE_HOST);
-  CUDA_CALL(cudaMalloc(&sym_row, (A->m + 1) * sizeof(int)));
+  gpuErrchk(cudaMalloc(&sym_row, (A->m + 1) * sizeof(int)));
   cusparseXcsrgeamNnz(handle, A->m, A->n, matrix_descriptor, A->nnz, A->row,
                       A->col, matrix_descriptor, A->nnz, d_csrRowPtrB,
                       d_csrColIndB, matrix_descriptor, sym_row,
@@ -236,14 +236,14 @@ sparse_matrix<matval>* symmetrizeMatrixGPU(sparse_matrix<matval> *A, cusparseHan
   if (NULL != nnzTotalDevHostPtr) {
     nnz3 = *nnzTotalDevHostPtr;
   } else {
-    CUDA_CALL(
+    gpuErrchk(
         cudaMemcpy(&nnz3, sym_row + A->m, sizeof(int), cudaMemcpyDeviceToHost));
-    CUDA_CALL(cudaMemcpy(&baseC, sym_row, sizeof(int), cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(&baseC, sym_row, sizeof(int), cudaMemcpyDeviceToHost));
     nnz3 -= baseC;
   }
 
-  CUDA_CALL(cudaMalloc(&sym_col, nnz3 * sizeof(int)));
-  CUDA_CALL(cudaMalloc(&sym_val, nnz3 * sizeof(coord)));
+  gpuErrchk(cudaMalloc(&sym_col, nnz3 * sizeof(int)));
+  gpuErrchk(cudaMalloc(&sym_val, nnz3 * sizeof(coord)));
   coord alpha = 0.5, beta = 0.5;
   cusparseScsrgeam(handle, A->m, A->n, &alpha, matrix_descriptor, A->nnz,
                    A->val, A->row, A->col, &beta, matrix_descriptor, A->nnz,
@@ -251,9 +251,9 @@ sparse_matrix<matval>* symmetrizeMatrixGPU(sparse_matrix<matval> *A, cusparseHan
                    sym_val, sym_row, sym_col);
   cudaDeviceSynchronize();
 
-  CUDA_CALL(cudaFree(d_csrValB));
-  CUDA_CALL(cudaFree(d_csrRowPtrB));
-  CUDA_CALL(cudaFree(d_csrColIndB));
+  gpuErrchk(cudaFree(d_csrValB));
+  gpuErrchk(cudaFree(d_csrRowPtrB));
+  gpuErrchk(cudaFree(d_csrColIndB));
   sparse_matrix<coord>* C=(sparse_matrix<coord> *)malloc(sizeof(sparse_matrix<coord>));
   C->n=A->n;
   C->m=A->m;
@@ -344,7 +344,7 @@ int SymmetrizeMatrix(cusparseHandle_t &handle,
     int32_t symmetrized_num_nonzeros = -1;
     cusparseSetPointerMode(handle, CUSPARSE_POINTER_MODE_HOST);
     //d_symmetrized_rowptr.resize(num_points+1);
-    CUDA_CALL(cudaMallocManaged(&(*d_symmetrized_rowptr), (num_points+1) * sizeof(int)));
+    gpuErrchk(cudaMallocManaged(&(*d_symmetrized_rowptr), (num_points+1) * sizeof(int)));
 
     cusparseXcsrgeamNnz(handle, num_points, num_points,
             matrix_descriptor, nnz, csr_row_ptr_a,
@@ -369,8 +369,8 @@ int SymmetrizeMatrix(cusparseHandle_t &handle,
     }
 
     // Allocate memory for the new summed array
-    CUDA_CALL(cudaMallocManaged(&(*d_symmetrized_colind), num_nonzeros_C * sizeof(int)));
-    CUDA_CALL(cudaMallocManaged(&(*d_symmetrized_values), num_nonzeros_C * sizeof(float)));
+    gpuErrchk(cudaMallocManaged(&(*d_symmetrized_colind), num_nonzeros_C * sizeof(int)));
+    gpuErrchk(cudaMallocManaged(&(*d_symmetrized_values), num_nonzeros_C * sizeof(float)));
 
     // Sum the arrays
     //float kAlpha = 1.0f ;

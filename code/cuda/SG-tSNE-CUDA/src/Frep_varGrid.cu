@@ -1,12 +1,7 @@
 
 #include "Frep.cuh"
-#include "timerstream.h"
-#include "complex.cuh"
-#include "complexD.cuh"
-
-
-
-#define num_threads 1024
+extern int Blocks;
+extern int Threads;
 extern cudaStream_t streamRep;
 
 template <class dataPoint>
@@ -37,11 +32,11 @@ __global__ void ComputeChargesKernel(volatile dataPoint *__restrict__ VScat,
   }
   }}
 }
+
 template <class dataPoint>
 void ComputeCharges(dataPoint *VScat, dataPoint *y_d, const int n,
                     const int d) {
-  const int num_blocks = (n + num_threads - 1) / num_threads;
-  ComputeChargesKernel<<<64, num_threads, 0, streamRep>>>(VScat, y_d, n,
+  ComputeChargesKernel<<<Blocks, Threads, 0, streamRep>>>(VScat, y_d, n,
                                                                   d);
 }
 template <class dataPoint>
@@ -72,18 +67,12 @@ compute_repulsive_forces_kernel(volatile dataPoint *__restrict__ frep,
 template <class dataPoint>
 dataPoint zetaAndForce(dataPoint *Ft_d, dataPoint *y_d, int n, int d,
                        dataPoint *Phi,thrust::device_vector<dataPoint> &zetaVec) {
-  // can posibly reduce amongs the threads and then divide
-
-  int threads = 1024;
-  int Blocks = 64;
-  compute_repulsive_forces_kernel<<<Blocks, threads, 0, streamRep>>>(
+  compute_repulsive_forces_kernel<<<Blocks, Threads, 0, streamRep>>>(
       Ft_d, y_d, n, d, Phi, thrust::raw_pointer_cast(zetaVec.data()));
-      cudaDeviceSynchronize();
   dataPoint z = thrust::reduce(thrust::cuda::par.on(streamRep), zetaVec.begin(),
                                zetaVec.end()) -
                 n;
-
-  normalize<<<Blocks, threads, 0, streamRep>>>(Ft_d,  z, n * d);
+  ArrayScale<<<Blocks, Threads, 0, streamRep>>>(Ft_d, 1 / z, n * d);
   return z;
 }
 template <class dataPoint, class Complext>
@@ -93,38 +82,21 @@ dataPoint computeFrepulsive_interp(dataPoint *Frep, dataPoint *y, int n, int d,
                                    dataPoint *yt, dataPoint *VScat,
                                    dataPoint *PhiScat, dataPoint *VGrid,
                                    dataPoint *PhiGrid, Complext *Kc,
-                                   Complext *Xc,thrust::device_vector<dataPoint> &zetaVec)  {
+                                   Complext *Xc,thrust::device_vector<dataPoint> &zetaVec) {
 
   struct GpuTimer timer;
 
-  const int num_blocks = (n + num_threads - 1) / num_threads;
   // ~~~~~~~~~~ move data to (0,0,...)
-  dataPoint miny[4];
   timer.Start(streamRep);
-
-  thrust::device_ptr<dataPoint> yVec_ptr(y);
-  for (int j = 0; j < d; j++) {
-    miny[j] = thrust::reduce(yVec_ptr+j*n, yVec_ptr+n*(j+1),100.0, thrust::minimum<dataPoint>());
-cudaDeviceSynchronize();
-    addScalar<<<num_blocks, num_threads>>>(&y[j * n], -miny[j], n);
-cudaDeviceSynchronize();  
-}
-cudaDeviceSynchronize();
-
-  ArrayCopy<<<64, num_threads, 0, streamRep>>>(y, yt, n * d);
-cudaDeviceSynchronize();  
-ComputeCharges(VScat, y, n, d);
-cudaDeviceSynchronize();
+  ArrayCopy<<<Blocks, Threads, 0, streamRep>>>(y, yt, n * d);
+  ComputeCharges(VScat, y, n, d);
   timer.Stop(streamRep);
-
   timeInfo[6] = timer.Elapsed();
-  int ib[1] = {0};
+
   timer.Start(streamRep);
-  nuconv(PhiScat, yt, VScat, ib, n, d, d + 1, nGrid, timeInfo + 1, plan,
+  nuconv(PhiScat, yt, VScat, n, d, d + 1, nGrid, timeInfo + 1, plan,
          plan_rhs,VGrid,PhiGrid,Kc,Xc);
-cudaDeviceSynchronize();
- 
- timer.Stop(streamRep);
+  timer.Stop(streamRep);
   timeInfo[5] = timer.Elapsed();
   timer.Start(streamRep);
   dataPoint zeta = zetaAndForce(Frep, y, n, d, PhiScat,zetaVec);
@@ -136,11 +108,11 @@ cudaDeviceSynchronize();
 template float computeFrepulsive_interp(
     float *Frep, float *y, int n, int d, float h, double *timeInfo, int nGrid,
     cufftHandle &plan, cufftHandle &plan_rhs, float *yt, float *VScat,
-    float *PhiScat, float *VGrid, float *PhiGrid, Complex *Kc, Complex *Xc,thrust::device_vector<float> &zetaVecs);
+    float *PhiScat, float *VGrid, float *PhiGrid, ComplexF *Kc, ComplexF *Xc,thrust::device_vector<float> &zetaVecs);
 template double computeFrepulsive_interp(double *Frep, double *y, int n, int d,
                                          double h, double *timeInfo, int nGrid,
                                          cufftHandle &plan,
                                          cufftHandle &plan_rhs, double *yt,
                                          double *VScat, double *PhiScat,
                                          double *VGrid, double *PhiGrid,
-                                         ComplexD *Kc, ComplexD *Xc,thrust::device_vector<double> &zetaVecs);
+                                         ComplexD *Kc, ComplexD *Xc,thrust::device_vector<double> &zetaVec);

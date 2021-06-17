@@ -49,6 +49,22 @@ __global__ void normalize(dataPoint* P,dataPoint sum,uint32_t nnz) {
 inline __host__ __device__ int iDivUp(int a, int b) {
   return ((a % b) != 0) ? (a / b + 1) : (a / b);
 }
+#define FULL_WARP_MASK 0xFFFFFFFF
+template <class T>
+__device__ T warp_reduce(T val){
+  for(int offset=32/2;offset>0;offset/=2){
+    val+=__shfl_down_sync(FULL_WARP_MASK,val,offset);
 
+  }
+  return val;
+}
+template<class dataType1,class dataType2>
+__global__ void copymixed(dataType1* a,dataType2* b,int n){
+    for (register int TID = threadIdx.x + blockIdx.x * blockDim.x;
+       TID < n; TID += gridDim.x * blockDim.x) {
+	a[TID]=(dataType1)b[TID];
 
+}
+
+}
 #endif
