@@ -4,7 +4,9 @@
 ## Abstract
 t-distributed Stochastic Neighborhood Embedding (t-SNE) is a widely used dimensionality reduction technique, that is particularly well suited for visualization of high-dimensional datasets. On this diploma thesis we introduce a high performance GPU-accelerated implementation of the t-SNE method in CUDA. We base our approach on the work “Spaceland Embedding of Sparse Stochastic Graphs, HPEC 2019” [1]. Obtaining an embedding essentially requires two steps, namely a dense and a sparse computation. One of the main bottlenecks is that usually sparse computation does not scale well in GPU’s because of the irregularity of the memory accesses. To overcome this problem, we use a more suitable sparse matrix storage format that leads to locally dense data and is better suited for GPU processing. The dense computation is performed with an interpolation-based fast Fourier Transform accelerated method. Finally, for high performance multicore systems we introduce a Hybrid CPU-GPU implementation that executes the sparse computation on the CPU and the dense computation on the GPU in parallel, hiding some of the total temporal cost in the process. 
 
-We name the GPU-CUDA implementation of the algorthm SG-tSNE-CUDA and the Hybrid CPU-GPU implementation of the algorithm SG-tSNE-HYB.
+
+## Features
+We name the GPU-CUDA implementation of the algorthm SG-tSNE-CUDA and the Hybrid CPU-GPU implementation of the algorithm SG-tSNE-HYB.  
 
 ### Prerequisites 
 
@@ -23,8 +25,17 @@ And SG-tSNE-HYB uses the following open-source software:
 -   [CUDA](https://developer.nvidia.com/cuda-downloads) 9.2
 -   [CMAKE](https://cmake.org/download/) 3.0
 
-## Usage
-
+## Usage example
+SG-tSNE-CUDA:
+```shell
+cmake .
+./sg_tsne_cuda -t [format hybrid or coo] -d [dimension] [datasetfilename]
+```
+SG-tSNE-HYB:
+```shell
+cmake .
+./tsne -d [dimension 1,2 or 3] [datasetfilename]
+```
 
 ## Performance
 We precent experiments for random sampled subsets of the 1.3 million element dataset of mice brain cell data (avaliable [here](https://support.10xgenomics.com/single-cell-gene-expression/datasets)). With this proccess we can see how the performance is affected by the number of elements.
