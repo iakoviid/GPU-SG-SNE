@@ -40,6 +40,7 @@ cmake .
 ## Performance
 We precent experiments for random sampled subsets of the 1.3 million element dataset of mice brain cell data (avaliable [here](https://support.10xgenomics.com/single-cell-gene-expression/datasets)). With this proccess we can see how the performance is affected by the number of elements.
 ![](https://github.com/iakoviid/GPU-SG-SNE/blob/master/images/im1.jpg)
+
 We can see that our implementations are faster than t-SNE-CUDA [2]. With speed up: 
 ![](https://github.com/iakoviid/GPU-SG-SNE/blob/master/images/im2.jpg)
 
